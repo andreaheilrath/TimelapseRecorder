@@ -2,164 +2,144 @@ import cv2
 import time
 import os
 
-
-# Global Variables
-cap = None
-img_file_prefix = ""
-img_index = 0
-img_shown_index = 0
-last_picture_time = 0
-last_pressed_time = 0
-delta_time = 5
-state = ""
-program_start_time = 0
-current_project = None
-projects_folder = "projects"
-playback_speed = 1.0 
+class TimeLapseCamera:
+    CAPTURE_INTERVAL = 5  # Time between captures in seconds
+    PLAYBACK_SPEED = 1.0  # Playback speed factor
+    LOG_PATH = "log.txt"
+    PROJECTS_FOLDER = "projects"
+    DEFAULT_PROJECT = "test"
+    PLAYBACK_SPEEDS = [16., 32., 64., 128.]  # Define your desired playback speeds here
+    playback_speed_index = 0  # Index to keep track of the current playback speed
 
 
-def new_folder(parent_folder = projects_folder):
-    # Check if the parent folder exists
-    if not os.path.exists(parent_folder):
-        print(f"The parent folder '{parent_folder}' does not exist.")
-        return None  # Or handle it in some other way
-    # Iterate through all subfolders
-    for folder_name in os.listdir(parent_folder):
-        folder_path = os.path.join(parent_folder, folder_name)
-        if os.path.isdir(folder_path) and not os.listdir(folder_path):
-            return folder_name
+    def __init__(self):
+        self.cap = None
+        self.current_project = ""
+        self.img_file_prefix = ""
+        self.img_index = 0
+        self.img_shown_index = 1
+        self.last_picture_time = time.time()
+        self.program_start_time = self.last_picture_time
+        self.playback_speed = self.PLAYBACK_SPEED
+
+    def initialize(self):
+        if not self.initialize_camera():
+            print("Failed to initialize camera. Exiting.")
+            exit(1)
+        self.setup_project()
+        cv2.namedWindow("Zeitmaschine", cv2.WINDOW_NORMAL)
+
+    def initialize_camera(self):
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            return False
+        return True
+
+    def setup_project(self):
+        if not os.path.exists(self.LOG_PATH):
+            with open(self.LOG_PATH, "w") as log:
+                pass
+        else:
+            with open(self.LOG_PATH, "r") as log:
+                self.current_project = log.readline().strip()
+                self.img_index = int(log.readline().strip())
+
+        if not os.path.exists(self.PROJECTS_FOLDER):
+            os.makedirs(os.path.join(self.PROJECTS_FOLDER, self.DEFAULT_PROJECT))
+            self.current_project = self.DEFAULT_PROJECT
+            self.img_index = 0
+        else:
+            self.current_project = self.new_folder()
+
+        self.img_file_prefix = os.path.join(self.current_project, "image_")
+        print(f"Project: {self.current_project} | Current Image Index: {self.img_index}")
+
+    def new_folder(self):
+        project_paths = [os.path.join(self.PROJECTS_FOLDER, d) for d in os.listdir(self.PROJECTS_FOLDER) if os.path.isdir(os.path.join(self.PROJECTS_FOLDER, d))]
+        if not project_paths:
+            return self.DEFAULT_PROJECT
+        latest_project_path = max(project_paths, key=os.path.getmtime)
+        return os.path.basename(latest_project_path)
+
+    def capture_image(self):
+        if not self.cap:
+            print("Camera not initialized.")
+            return None
+
+        ret, frame = self.cap.read()
+        if ret:
+            img_filename = f"{self.PROJECTS_FOLDER}/{self.img_file_prefix}{self.img_index}.jpg"
+            self.save_image_with_timestamp(frame, img_filename)
+            self.last_picture_time = time.time()
+            self.img_index += 1
+
+            with open(self.LOG_PATH, 'w') as log:
+                log.write(f"{self.current_project}\n{self.img_index}")
+        return frame
+
+    def save_image_with_timestamp(self, frame, filename):
+        frame_with_timestamp = self.add_timestamp_to_image(frame)
+        try:
+            cv2.imwrite(filename, frame_with_timestamp)
+        except Exception as e:
+            print(f"Failed to save image {filename}: {e}")
+
+    def add_timestamp_to_image(self, frame):
+        elapsed_time = int(time.time() - self.program_start_time)
+        hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
+        text = f"Elapsed Time: {hours:02d}:{minutes:02d}:{seconds:02d}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        (text_width, text_height) = cv2.getTextSize(text, font, 0.5, 1)[0]
+        img = cv2.rectangle(frame, (0, 0), (text_width + 10, text_height + 10), (0, 0, 0), -1)
+        img = cv2.putText(img, text, (5, text_height + 5), font, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        return img
+
+    def update_display(self, index):
+        img_filename = f"{self.PROJECTS_FOLDER}/{self.img_file_prefix}{index}.jpg"
+        frame = cv2.imread(img_filename)
+        if frame is not None:
+            cv2.imshow("Zeitmaschine", frame)
+
+    def play_movie(self):
+        self.img_shown_index += 1 if self.playback_speed > 0 else -1
+        self.img_shown_index = (self.img_shown_index + self.img_index) % self.img_index
+        self.update_display(self.img_shown_index)
+        time.sleep(self.CAPTURE_INTERVAL / abs(self.playback_speed))
 
 
-def initialize():
-    global cap, last_picture_time, last_pressed_time, program_start_time, img_index, current_project, img_file_prefix
-    cap = cv2.VideoCapture(0)
-    last_picture_time = time.time()
-    last_pressed_time = time.time()
-    program_start_time = time.time()
-    if (new_folder()):
-        current_project = new_folder()
-        img_index = 0
-        print("Started new project!")
-    else:
-        log = open("log.txt","r")
-        current_project = log.readline().strip()
-        img_index = int(log.readline().strip())
-        log.close()
-        print("Loaded project!")
-    print("poject name and index: " + current_project + " - " + str(img_index))
-    img_file_prefix = current_project + "/image_"
-    cv2.namedWindow("Zeitmaschine", cv2.WINDOW_NORMAL)
+    def handle_key_press(self):
+        key = cv2.waitKey(1)
+        if key == ord('f'):
+            self.playback_speed_index = (self.playback_speed_index + 1) % len(self.PLAYBACK_SPEEDS)
+            self.playback_speed = self.PLAYBACK_SPEEDS[self.playback_speed_index]
+            print(f"forward speed {self.playback_speed}")
+        elif key == ord('b'):
+            self.playback_speed_index = (self.playback_speed_index + 1) % len(self.PLAYBACK_SPEEDS)
+            self.playback_speed = -1. * self.PLAYBACK_SPEEDS[self.playback_speed_index]
+            print(f"backward speed {self.playback_speed}")
+        elif key == ord('p'):
+            self.playback_speed = 1
+            print("play/pause")
+        elif key == ord('q'):
+            print("quit")
+            return False
+        return True
 
-def capture_image():
-    global img_index, last_picture_time, current_project, projects_folder
-    ret, frame = cap.read()
-    log = open("log.txt","w")
-    log.write(current_project + "\n" + str(img_index))
-    log.close()
-    if ret:
-        img_index += 1
-        img_filename = f"{projects_folder}/{img_file_prefix}{img_index}.jpg"
-        save_image_with_timestamp(frame, img_filename)
-        last_picture_time = time.time()
-    return frame
+    def main_loop(self):
+        while True:
+            if not self.handle_key_press():
+                break
+            if time.time() - self.last_picture_time >= self.CAPTURE_INTERVAL:
+                self.capture_image()
+            self.play_movie()
 
-def save_image_with_timestamp(frame, filename):
-    frame_with_timestamp = add_timestamp_to_image(frame)
-    cv2.imwrite(filename, frame_with_timestamp)
-
-def add_timestamp_to_image(frame):
-    current_time = time.time()
-    elapsed_time = int(current_time - program_start_time)
-    hours, minutes, seconds = elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60
-    text = f"Elapsed Time: {hours:02d}:{minutes:02d}:{seconds:02d}"
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.5
-    font_thickness = 1
-    text_color = (255, 255, 255)
-    text_bg_color = (0, 0, 0)
-    (text_width, text_height) = cv2.getTextSize(text, font, font_scale, font_thickness)[0]
-    img = cv2.rectangle(frame, (0, 0), (text_width + 10, text_height + 10), text_bg_color, -1)
-    org = (5, text_height + 5)
-    img = cv2.putText(img, text, org, font, font_scale, text_color, font_thickness, cv2.LINE_AA)
-    return img
-
-def update_display():
-    global img_shown_index, last_pressed_time, delta_time
-    current_time = time.time()
-    if current_time - last_pressed_time >= delta_time:
-        img_shown_index = img_index
-        display_image()
-        last_pressed_time = current_time
-
-
-def display_image():
-    global playback_speed
-    if playback_speed > 0:
-        display_next_image()
-    else:
-        display_previous_image()         
-    img_filename = f"projects/{img_file_prefix}{img_shown_index}.jpg"
-    frame = cv2.imread(img_filename)
-    if frame is not None:
-        cv2.imshow("Zeitmaschine", frame)
-        time.sleep(5.0 / playback_speed)  # Adjusts the delay based on playback speed
-
-
-def display_previous_image():
-    global img_shown_index
-    img_shown_index -= 1
-    if img_shown_index < 1:
-        img_shown_index = img_index
-    return 0
-
-def display_next_image():
-    global img_shown_index
-    img_shown_index += 1
-    if img_shown_index > img_index:
-        img_shown_index = 0
-    return 0
-
-def handle_key_press():
-    global img_shown_index, last_pressed_time, playback_speed
-    key = cv2.waitKey(1)
-    if key == ord('f'):
-        state = "forward"
-        playback_speed = 20
-        print(state)
-    elif key == ord('b'):
-        state = "backward"
-        playback_speed = 20
-        print(state)
-    elif key == ord('p'):
-        state = "play/pause"
-        playback_speed = 1
-        print(state)
-    elif key == ord('a'):
-        display_previous_image()
-        last_pressed_time = time.time()
-    elif key == ord('s'):
-        display_next_image()
-        last_pressed_time = time.time()
-    elif key == ord('q'):
-        return False
-    return True
-
-
-def main_loop():
-    global state
-    while True:
-        current_time = time.time()
-        if current_time - last_picture_time >= delta_time:
-            capture_image()
-        update_display()
-        if not handle_key_press():
-            break
-
-def cleanup():
-    cap.release()
-    cv2.destroyAllWindows()
+    def cleanup(self):
+        if self.cap:
+            self.cap.release()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    initialize()
-    main_loop()
-    cleanup()
+    cam = TimeLapseCamera()
+    cam.initialize()
+    cam.main_loop()
+    cam.cleanup()
