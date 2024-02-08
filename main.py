@@ -8,11 +8,11 @@ class TimeLapseCamera:
     
     # Constants
     CAPTURE_INTERVAL = 5  # Interval between image captures in seconds
-    DEFAULT_PLAYBACK_SPEED = 1.0  # Default playback speed when reviewing images
+    DEFAULT_PLAYBACK_SPEED = 1  # Default playback speed when reviewing images
     LOG_PATH = "log.txt"  # Path to the log file
     PROJECTS_FOLDER = "projects"  # Folder where project images are stored
-    DEFAULT_PROJECT = "test"  # Default project name
-    PLAYBACK_SPEEDS = [16., 32., 64., 128.]  # Playback speeds for reviewing images
+    DEFAULT_PROJECT = "default"  # Default project name
+    PLAYBACK_SPEEDS = [16, 32, 64, 128]  # Playback speeds for reviewing images
     WINDOW_NAME = "Zeitmaschine"  # Window name for the display
 
     def __init__(self):
@@ -47,6 +47,9 @@ class TimeLapseCamera:
     def initialize_camera(self):
         """Attempts to initialize the camera."""
         self.cap = cv2.VideoCapture(0)
+        print(self.cap)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
         return self.cap.isOpened()
 
     def setup_project(self):
@@ -62,7 +65,7 @@ class TimeLapseCamera:
     def prepare_display(self):
         """Prepares the display window for showing images."""
         cv2.namedWindow(self.WINDOW_NAME, cv2.WINDOW_GUI_NORMAL)
-        cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        #cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     def read_log_file(self):
         """Reads the log file to resume the last session's state."""
@@ -140,7 +143,18 @@ class TimeLapseCamera:
         """Updates the display with the image at the given index."""
         img_filename = f"{self.PROJECTS_FOLDER}/{self.img_file_prefix}{index}.jpg"
         frame = cv2.imread(img_filename)
+
         if frame is not None:
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            text_size = cv2.getTextSize(str(self.playback_speed), font, 0.5, 1)[0]
+            #frame = cv2.rectangle(frame, (0, 0), (text_size[0] + 10, text_size[1] + 10), (0, 0, 0), -1)
+            if self.playback_speed == 1:
+                icon = "> "
+            elif self.playback_speed > 1:
+                icon = ">>"
+            elif self.playback_speed < 1:
+                icon = "<<"
+            cv2.putText(frame, icon + str(abs(self.playback_speed)) + "x", (1000, 100), font, 2, (0, 0, 0), 5)
             cv2.imshow(self.WINDOW_NAME, frame)
 
     def play_movie(self):
