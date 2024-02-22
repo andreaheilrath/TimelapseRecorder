@@ -14,6 +14,7 @@ class TimeLapseCamera:
     DEFAULT_PROJECT = "default"  # Default project name
     PLAYBACK_SPEEDS = [16, 32, 64, 128]  # Playback speeds for reviewing images
     WINDOW_NAME = "Zeitmaschine"  # Window name for the display
+    PIXEL_LOCATION = [10,10]
 
     def __init__(self):
         """Initializes the TimeLapseCamera object."""
@@ -137,7 +138,24 @@ class TimeLapseCamera:
         text_size = cv2.getTextSize(timestamp_text, font, 0.5, 1)[0]
         frame = cv2.rectangle(frame, (0, 0), (text_size[0] + 10, text_size[1] + 10), (0, 0, 0), -1)
         cv2.putText(frame, timestamp_text, (5, text_size[1] + 5), font, 0.5, (255, 255, 255), 1)
+        stats = self.map_time_255(elapsed_time)
+        frame[self.PIXEL_LOCATION[0]-10:self.PIXEL_LOCATION[0]+10, self.PIXEL_LOCATION[1]-10:self.PIXEL_LOCATION[1]+10] = (stats[0], stats[1], stats[2]) #(elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60)
         return frame
+    
+
+    def map_time_255(self, elapsed_time):
+        #days = elapsed_time // 86400
+        hours = elapsed_time % 86400 // 3600
+        minutes = elapsed_time % 3600 // 60
+        seconds = elapsed_time % 60
+        print([hours, minutes , seconds])
+        print([hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2])
+        print(self.map_255_time([hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2]))
+        return [hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2] #days* 10 + 4,
+    
+    def map_255_time(self, stats):
+        return [stats[0] // 10, stats[1] // 4, stats[2] // 4] #stats[0] // 10, 
+
 
     def update_display(self, index):
         """Updates the display with the image at the given index."""
@@ -147,6 +165,8 @@ class TimeLapseCamera:
         if frame is not None:
             font = cv2.FONT_HERSHEY_SIMPLEX
             text_size = cv2.getTextSize(str(self.playback_speed), font, 0.5, 1)[0]
+            #print(frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]][0], frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]][1], frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]][2])
+            cv2.putText(frame, str(self.map_255_time(frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]])), (400, 60), font, 1.4 , (0, 0, 0), 3)
             #frame = cv2.rectangle(frame, (0, 0), (text_size[0] + 10, text_size[1] + 10), (0, 0, 0), -1)
             if self.playback_speed == 1:
                 icon = "> "
@@ -154,7 +174,7 @@ class TimeLapseCamera:
                 icon = ">>"
             elif self.playback_speed < 1:
                 icon = "<<"
-            cv2.putText(frame, icon + str(abs(self.playback_speed)) + "x", (1000, 100), font, 2, (0, 0, 0), 5)
+            cv2.putText(frame, icon + str(abs(self.playback_speed)) + "x", (800, 60), font, 1.4, (0, 0, 0), 3)         
             cv2.imshow(self.WINDOW_NAME, frame)
 
     def play_movie(self):
