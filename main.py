@@ -11,7 +11,7 @@ class TimeLapseCamera:
     LOG_PATH = "log.txt"  # Path to the log file
     PROJECTS_FOLDER = "projects"  # Folder where project images are stored
     DEFAULT_PROJECT = "default"  # Default project name
-    PLAYBACK_SPEEDS = [16, 32, 64, 128]  # Playback speeds for reviewing images
+    PLAYBACK_SPEEDS = [16, 32, 64, 128, 256]  # Playback speeds for reviewing images
     WINDOW_NAME = "Zeitmaschine"  # Window name for the display
     PIXEL_LOCATION = [10,10]
 
@@ -21,9 +21,10 @@ class TimeLapseCamera:
         self.cap = None
         self.active_project = ""
         self.selected_project = ""
-        self.selected_index = 0
+        self.selected_project_index = 0
         self.img_file_prefix = "image_"
-        self.img_index = 1
+        self.img_capture_index = 1
+        self.img_max_index = 0
         
         # Playback controls
         self.img_shown_index = 1
@@ -31,6 +32,7 @@ class TimeLapseCamera:
         self.playback_speed = self.DEFAULT_PLAYBACK_SPEED
         self.playback_speed_index = 0
         self.projects = []
+        self.projects_dict = {}
         
         # Timing
         self.program_start_time = time.time()
@@ -48,7 +50,6 @@ class TimeLapseCamera:
     def initialize_camera(self):
         """Attempts to initialize the camera."""
         self.cap = cv2.VideoCapture(0)
-        print(self.cap)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
         return self.cap.isOpened()
@@ -57,10 +58,12 @@ class TimeLapseCamera:
         """Sets up the project directory and reads the last state from the log file."""
         self.read_log_file()
         self.ensure_directory_exists(self.PROJECTS_FOLDER)
-        self.projects = self.get_projects()
-        self.select_project(self.projects)
-        self.img_file_prefix
-        print(f"Project: {self.active_project} | Current Image Index: {self.img_index}")
+        self.get_projects()
+        self.select_project()
+        self.selected_project = self.active_project
+        self.selected_project_index = self.projects.index(self.selected_project)
+        print(f"Project: {self.active_project} | Current Image Index: {self.img_capture_index}")
+        print(self.selected_project_index)
 
     def prepare_display(self):
         """Prepares the display window for showing images."""
@@ -72,7 +75,7 @@ class TimeLapseCamera:
         try:
             with open(self.LOG_PATH, "r") as log_file:
                 self.active_project = log_file.readline().strip()
-                self.img_index = int(log_file.readline().strip())
+                self.img_capture_index = int(log_file.readline().strip())
                 self.program_start_time = float(log_file.readline().strip())
         except FileNotFoundError:
             print("Log file not found. Starting with default values.")
@@ -80,7 +83,7 @@ class TimeLapseCamera:
     def write_log_file(self):
         """Writes the current state to the log file."""
         with open(self.LOG_PATH, "w") as log_file:
-            log_file.write(f"{self.active_project}\n{self.img_index}\n{self.program_start_time}")
+            log_file.write(f"{self.active_project}\n{self.img_capture_index}\n{self.program_start_time}")
 
     def ensure_directory_exists(self, path):
         """Ensures that a directory exists at the given path."""
@@ -88,23 +91,28 @@ class TimeLapseCamera:
 
     def get_projects(self):
         """Returns a list of projects sorted by creation time."""
-        projects = [d for d in os.listdir(self.PROJECTS_FOLDER) if os.path.isdir(os.path.join(self.PROJECTS_FOLDER, d))]
-        projects.sort(key=lambda d: os.path.getctime(os.path.join(self.PROJECTS_FOLDER, d)))
-        if not projects:
-            projects.append(self.DEFAULT_PROJECT)
+        projects_list = [d for d in os.listdir(self.PROJECTS_FOLDER) if os.path.isdir(os.path.join(self.PROJECTS_FOLDER, d))]
+        #projects_list.sort(key=lambda d: -os.path.getctime(os.path.join(self.PROJECTS_FOLDER, d)))
+        if not projects_list:
+            projects_list.append(self.DEFAULT_PROJECT)
             self.ensure_directory_exists(os.path.join(self.PROJECTS_FOLDER, self.DEFAULT_PROJECT))
-        return projects
+        for project in projects_list:
+            dir_path = os.path.join(self.PROJECTS_FOLDER, project)
+            number_of_files = len([entry for entry in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, entry))])
+            self.projects_dict[project] = number_of_files
+        self.projects = projects_list
+        print("Projects Dict:", self.projects_dict)
 
-    def select_project(self, projects):
+    def select_project(self):
         """Selects the current project from the available projects."""
-        for project in projects:
+        for project in self.projects:
             if self.is_directory_empty(os.path.join(self.PROJECTS_FOLDER, project)):
                 self.active_project = project
                 self.program_start_time = time.time()
-                self.img_index = 1
+                self.img_capture_index = 1
                 self.write_log_file()
                 return
-        if self.active_project in projects:
+        if self.active_project in self.projects:
             return
         self.active_project = self.DEFAULT_PROJECT
         self.write_log_file()
@@ -120,11 +128,10 @@ class TimeLapseCamera:
             return
         ret, frame = self.cap.read()
         if ret:
-            #img_filename = f"{self.PROJECTS_FOLDER}/{self.img_file_prefix}{self.img_index}.jpg"
-            img_path = os.path.join(self.PROJECTS_FOLDER, self.active_project, f"{self.img_file_prefix}{self.img_index}.jpg")
+            img_path = os.path.join(self.PROJECTS_FOLDER, self.active_project, f"{self.img_file_prefix}{self.img_capture_index}.jpg")
             self.save_image_with_timestamp(frame, img_path)
             self.last_picture_time = time.time()
-            self.img_index += 1
+            self.img_capture_index += 1
             self.write_log_file()
 
     def save_image_with_timestamp(self, frame, filename):
@@ -135,12 +142,6 @@ class TimeLapseCamera:
     def add_timestamp_to_image(self, frame):
         """Adds a timestamp overlay to the given image frame."""
         elapsed_time = int(time.time() - self.program_start_time)
-        # print(time.time(), time.gmtime(), time.localtime())
-        timestamp_text = f"Elapsed Time: {elapsed_time // 3600:02d}:{(elapsed_time % 3600) // 60:02d}:{elapsed_time % 60:02d}"
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        text_size = cv2.getTextSize(timestamp_text, font, 0.5, 1)[0]
-        frame = cv2.rectangle(frame, (0, 0), (text_size[0] + 10, text_size[1] + 10), (0, 0, 0), -1)
-        cv2.putText(frame, timestamp_text, (5, text_size[1] + 5), font, 0.5, (255, 255, 255), 1)
         stats = self.map_time_255(elapsed_time)
         frame[self.PIXEL_LOCATION[0]-10:self.PIXEL_LOCATION[0]+10, self.PIXEL_LOCATION[1]-10:self.PIXEL_LOCATION[1]+10] = (stats[0], stats[1], stats[2]) #(elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60)
         return frame
@@ -151,18 +152,15 @@ class TimeLapseCamera:
         hours = elapsed_time % 86400 // 3600
         minutes = elapsed_time % 3600 // 60
         seconds = elapsed_time % 60
-        # print([hours, minutes , seconds])
-        # print([hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2])
-        # print(self.map_255_time([hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2]))
         return [hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2] #days* 10 + 4,
     
     def map_255_time(self, stats):
         return [stats[0] // 10, stats[1] // 4, stats[2] // 4] #stats[0] // 10, 
 
-
     def update_display(self, index):
         """Updates the display with the image at the given index."""
-        img_filename = os.path.join(self.PROJECTS_FOLDER, self.active_project, f"{self.img_file_prefix}{index}.jpg")
+
+        img_filename = os.path.join(self.PROJECTS_FOLDER, self.selected_project, f"{self.img_file_prefix}{index}.jpg")
         frame = cv2.imread(img_filename)
 
         if frame is not None:
@@ -177,13 +175,10 @@ class TimeLapseCamera:
             cv2.rectangle(frame, (20, 0), (1280, 60), (0, 0, 0), -1)
             
             # print elapsed time on canvas
-            #text_size = cv2.getTextSize(str(self.playback_speed), font, 0.5, 1)[0]
-            #print(frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]][0], frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]][1], frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]][2])
             cv2.putText(frame, str(self.map_255_time(frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]])), (40, height), font, font_size, font_color, font_weight)
-            #frame = cv2.rectangle(frame, (0, 0), (text_size[0] + 10, text_size[1] + 10), font_color, -1)     
             
             # print project on canvas
-            cv2.putText(frame, str(self.active_project), (500, height), font, font_size, font_color, font_weight)
+            cv2.putText(frame, str(self.selected_project), (500, height), font, font_size, font_color, font_weight)
             
             # print playback speed on canvas
             if self.playback_speed == 1:
@@ -198,7 +193,7 @@ class TimeLapseCamera:
 
     def play_movie(self):
         """Plays the captured images as a time-lapse movie."""
-        self.img_shown_index = (self.img_shown_index + (1 if self.playback_speed > 0 else -1)) % self.img_index
+        self.img_shown_index = (self.img_shown_index + (1 if self.playback_speed > 0 else -1)) % self.img_capture_index
         self.update_display(self.img_shown_index)
         self.key = cv2.waitKey(int(1000 * self.CAPTURE_INTERVAL / abs(self.playback_speed)))
 
@@ -213,9 +208,17 @@ class TimeLapseCamera:
             self.playback_speed = self.DEFAULT_PLAYBACK_SPEED
             print("Play/Pause")
         elif self.key == ord('s'):
-            self.selected_index = (self.selected_index + 1) % len(self.projects)
-            self.selected_project = self.projects[self.selected_index]
-            print("Skip Project")
+            self.selected_project_index = (self.selected_project_index + 1) % len(self.projects)
+            self.selected_project = self.projects[self.selected_project_index]
+            self.img_shown_index = 1
+            print("Select", self.selected_project_index, self.selected_project)
+            self.img_max_index = self.projects_dict[self.selected_project]
+        elif self.key == ord('a'):
+            self.selected_project_index = (self.selected_project_index - 1) % len(self.projects)
+            self.selected_project = self.projects[self.selected_project_index]
+            self.img_shown_index = 1
+            print("Select", self.selected_project_index, self.selected_project)
+            self.img_max_index = self.projects_dict[self.selected_project]
         elif self.key == ord('q'):
             print("Quit")
             return False
