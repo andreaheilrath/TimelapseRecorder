@@ -1,8 +1,7 @@
-import cv2
-import time
 import os
-import RPi.GPIO as GPIO
-from pynput.keyboard import Key, Controller
+import time
+import numpy as np
+import cv2
 
 class TimeLapseCamera:
     """A class for creating time-lapse videos using a connected camera."""
@@ -15,7 +14,12 @@ class TimeLapseCamera:
     DEFAULT_PROJECT = "default"  # Default project name
     PLAYBACK_SPEEDS = [16, 32, 64, 128, 256]  # Playback speeds for reviewing images
     WINDOW_NAME = "Zeitmaschine"  # Window name for the display
-    PIXEL_LOCATION = [10,10]
+    PIXELS_INSCRIPTION = 15
+    WIDTH = 1920
+    HEIGHT = 1080
+    LANDSCAPE = True
+    ON_RASPI = False
+    FULLSCREEN = False
 
     def __init__(self):
         """Initializes the TimeLapseCamera object."""
@@ -27,17 +31,8 @@ class TimeLapseCamera:
         self.img_file_prefix = "image_"
         self.img_capture_index = 0
         self.img_max_index = 0
+        self.default = False
 
-
-        # GPIO Setup
-        # BCM-Nummerierung verwenden
-        GPIO.setmode(GPIO.BCM)
-        self.keyboard = Controller()
-
-        # GPIO 17 (Pin 11) als Ausgang setzen
-        GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(17, GPIO.FALLING, callback = self.interrupt, bouncetime = 200)
-        
         # Playback controls
         self.img_shown_index = 1
         self.key = None
@@ -49,6 +44,7 @@ class TimeLapseCamera:
         # Timing
         self.program_start_time = time.time()
         self.last_picture_time = self.program_start_time - self.CAPTURE_INTERVAL
+        self.last_keypress = time.time()
     
     def interrupt(self, other):
         print("Button!", other)
@@ -65,14 +61,17 @@ class TimeLapseCamera:
 
     def initialize_camera(self):
         """Attempts to initialize the camera."""
-        self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
         # check current usb camera settings in terminal
         # v4l2-ctl -V 
         # check available usb camera settings in terminal
         # v4l2-ctl --list-formats-ext
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')) #cv2.VideoWriter_fourcc(*"MJPG")
+        if self.ON_RASPI:
+            self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+        else:
+            self.cap = cv2.VideoCapture(0)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.WIDTH)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.HEIGHT)
+        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
         return self.cap.isOpened()
 
     def setup_project(self):
@@ -89,7 +88,8 @@ class TimeLapseCamera:
     def prepare_display(self):
         """Prepares the display window for showing images."""
         cv2.namedWindow(self.WINDOW_NAME, cv2.WINDOW_GUI_NORMAL)
-        #cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        if self.FULLSCREEN:
+            cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     def read_log_file(self):
         """Reads the log file to resume the last session's state."""
@@ -113,7 +113,7 @@ class TimeLapseCamera:
     def get_projects(self):
         """Returns a list of projects sorted by creation time."""
         projects_list = [d for d in os.listdir(self.PROJECTS_FOLDER) if os.path.isdir(os.path.join(self.PROJECTS_FOLDER, d))]
-        #projects_list.sort(key=lambda d: -os.path.getctime(os.path.join(self.PROJECTS_FOLDER, d)))
+        projects_list.sort(key=lambda d: -os.path.getctime(os.path.join(self.PROJECTS_FOLDER, d)))
         if not projects_list:
             projects_list.append(self.DEFAULT_PROJECT)
             self.ensure_directory_exists(os.path.join(self.PROJECTS_FOLDER, self.DEFAULT_PROJECT))
@@ -166,19 +166,25 @@ class TimeLapseCamera:
         """Adds a timestamp overlay to the given image frame."""
         elapsed_time = int(time.time() - self.program_start_time)
         stats = self.map_time_255(elapsed_time)
-        frame[self.PIXEL_LOCATION[0]-10:self.PIXEL_LOCATION[0]+10, self.PIXEL_LOCATION[1]-10:self.PIXEL_LOCATION[1]+10] = (stats[0], stats[1], stats[2]) #(elapsed_time // 3600, (elapsed_time % 3600) // 60, elapsed_time % 60)
+        frame[0 : self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[0], stats[0], stats[0])
+        frame[self.PIXELS_INSCRIPTION : 2*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[1], stats[1], stats[1])
+        frame[0 : self.PIXELS_INSCRIPTION, self.PIXELS_INSCRIPTION : 2*self.PIXELS_INSCRIPTION] = (stats[1], stats[1], stats[1])
+        frame[2*self.PIXELS_INSCRIPTION : 3*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[2], stats[2], stats[2])
+        frame[0 : self.PIXELS_INSCRIPTION, 2*self.PIXELS_INSCRIPTION : 3*self.PIXELS_INSCRIPTION] = (stats[2], stats[2], stats[2])
+        frame[3*self.PIXELS_INSCRIPTION : 4*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[3], stats[3], stats[3])
+        frame[0 : self.PIXELS_INSCRIPTION,3*self.PIXELS_INSCRIPTION : 4*self.PIXELS_INSCRIPTION] = (stats[3], stats[3], stats[3])
         return frame
     
 
     def map_time_255(self, elapsed_time):
-        #days = elapsed_time // 86400
+        days = elapsed_time // 86400
         hours = elapsed_time % 86400 // 3600
         minutes = elapsed_time % 3600 // 60
         seconds = elapsed_time % 60
-        return [hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2] #days* 10 + 4,
+        return [days* 10 + 4, hours * 10 + 4, minutes * 4 + 2 , seconds * 4 + 2]
     
     def map_255_time(self, stats):
-        return [stats[0] // 10, stats[1] // 4, stats[2] // 4] #stats[0] // 10, 
+        return [stats[0] // 10, stats[1] // 10, stats[2] // 4, stats[3] // 4] 
 
     def update_display(self, index):
         """Updates the display with the image at the given index."""
@@ -187,31 +193,88 @@ class TimeLapseCamera:
         frame = cv2.imread(img_filename)
 
         if frame is not None:
-            font = cv2.FONT_HERSHEY_SIMPLEX
+            font = cv2.FONT_HERSHEY_DUPLEX #cv2.FONT_HERSHEY_SIMPLEX #
 
             height = 40
             font_size = 1.2
-            font_weight = 2
+            font_weight = 1
             font_color = (255, 255, 255)
 
-            # draw black background for text
-            cv2.rectangle(frame, (20, 0), (1280, 60), (0, 0, 0), -1)
+            if self.LANDSCAPE:
+                UI_element = np.zeros((60,self.WIDTH-self.PIXELS_INSCRIPTION,3), np.uint8)
+
+                # draw black background for text
+                cv2.rectangle(UI_element, (0, 0), (self.WIDTH-self.PIXELS_INSCRIPTION, 59), (0, 0, 0), -1)
+                
+                # print elapsed time on canvas
+                space = 120
+                left_space = 30
+                value_days = int(frame[self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                value_hours = int(frame[self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                value_minutes = int(frame[2*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                value_seconds = int(frame[3*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
+                cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, str(elapsed_time[2]), (left_space + 2*space , height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, str(elapsed_time[3]), (left_space + 3*space, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 'd', (left_space + space//2, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 'h', (left_space + space + space//2, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 'm', (left_space + 2*space + space//2, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), font, font_size, font_color, font_weight)
+                
+                # print project on canvas
+                cv2.putText(UI_element, str(self.selected_project), (6*self.WIDTH//8, height), font, font_size, font_color, font_weight)
+                
+                # print playback speed on canvas
+                if self.playback_speed == 1:
+                    icon = "> "
+                elif self.playback_speed > 1:
+                    icon = ">>"
+                elif self.playback_speed < 1:
+                    icon = "<<"
+                cv2.putText(UI_element, icon + str(abs(self.playback_speed)) + "x", (4*self.WIDTH//10, height), font, font_size, font_color, font_weight)      
+                frame[0:60, self.PIXELS_INSCRIPTION:self.WIDTH] = UI_element
             
-            # print elapsed time on canvas
-            cv2.putText(frame, str(self.map_255_time(frame[self.PIXEL_LOCATION[0], self.PIXEL_LOCATION[1]])), (40, height), font, font_size, font_color, font_weight)
-            
-            # print project on canvas
-            cv2.putText(frame, str(self.selected_project), (500, height), font, font_size, font_color, font_weight)
-            
-            # print playback speed on canvas
-            if self.playback_speed == 1:
-                icon = "> "
-            elif self.playback_speed > 1:
-                icon = ">>"
-            elif self.playback_speed < 1:
-                icon = "<<"
-            cv2.putText(frame, icon + str(abs(self.playback_speed)) + "x", (1000, height), font, font_size, font_color, font_weight)    
-            
+            else:
+                UI_element = np.zeros((60,self.HEIGHT-self.PIXELS_INSCRIPTION,3), np.uint8)
+
+                # draw black background for text
+                cv2.rectangle(UI_element, (0, 0), (self.HEIGHT-self.PIXELS_INSCRIPTION, 59), (0, 0, 0), -1)
+                
+                # print elapsed time on canvas
+                space = 100
+                left_space = 680
+                value_days = int(frame[self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                value_hours = int(frame[self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                value_minutes = int(frame[2*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                value_seconds = int(frame[3*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
+                cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, str(elapsed_time[2]), (left_space + 2*space , height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, str(elapsed_time[3]), (left_space + 3*space, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 'd', (left_space + space//2, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 'h', (left_space + space + space//2, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 'm', (left_space + 2*space + space//2, height), font, font_size, font_color, font_weight)
+                cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), font, font_size, font_color, font_weight)
+                
+                # print project on canvas
+                cv2.putText(UI_element, str(self.selected_project), (20, height), font, font_size, font_color, font_weight)
+                
+                # print playback speed on canvas
+                if self.playback_speed == 1:
+                    icon = "> "
+                elif self.playback_speed > 1:
+                    icon = ">>"
+                elif self.playback_speed < 1:
+                    icon = "<<"
+                cv2.putText(UI_element, icon + str(abs(self.playback_speed)) + "x", (4*self.HEIGHT//10, height), font, font_size, font_color, font_weight)      
+                
+                UI_element = cv2.rotate(UI_element, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+                frame[self.PIXELS_INSCRIPTION:self.HEIGHT, 0:60] = UI_element
+
             cv2.imshow(self.WINDOW_NAME, frame)
 
     def play_movie(self):
@@ -225,25 +288,28 @@ class TimeLapseCamera:
 
     def handle_key_press(self):
         """Handles key press events for playback control."""
-        if self.key in [ord('f'), ord('b')]:
-            self.playback_speed = self.PLAYBACK_SPEEDS[self.playback_speed_index] * (-1 if self.key == ord('b') else 1)
+        if self.key in [ord('d'), ord('a')]:
+            self.last_keypress = time.time()
+            self.default = False
+            self.playback_speed = self.PLAYBACK_SPEEDS[self.playback_speed_index] * (-1 if self.key == ord('a') else 1)
             self.playback_speed_index = (self.playback_speed_index + 1) % len(self.PLAYBACK_SPEEDS)
-            direction = "backward" if self.key == ord('b') else "forward"
+            direction = "backward" if self.key == ord('a') else "forward"
             print(f"{direction} speed {self.playback_speed}")
-        elif self.key == ord('p'):
+        elif self.key == ord('s'):
+            self.last_keypress = time.time()
+            self.default = False
             if self.playback_speed > 0:
                 self.playback_speed = self.DEFAULT_PLAYBACK_SPEED
             else:
                 self.playback_speed = -1* self.DEFAULT_PLAYBACK_SPEED
             print("Play/Pause")
-        elif self.key == ord('s'):
-            self.selected_project_index = (self.selected_project_index + 1) % len(self.projects)
-            self.selected_project = self.projects[self.selected_project_index]
-            self.img_shown_index = 1
-            print("Select", self.selected_project_index, self.selected_project)
-            self.img_max_index = self.projects_dict[self.selected_project]
-        elif self.key == ord('a'):
-            self.selected_project_index = (self.selected_project_index - 1) % len(self.projects)
+        elif self.key in [ord('e'), ord('w')]:
+            self.last_keypress = time.time()
+            self.default = False
+            if self.key == ord('e'):
+                self.selected_project_index = (self.selected_project_index + 1) % len(self.projects)
+            else:
+                self.selected_project_index = (self.selected_project_index - 1) % len(self.projects)
             self.selected_project = self.projects[self.selected_project_index]
             self.img_shown_index = 1
             print("Select", self.selected_project_index, self.selected_project)
@@ -252,6 +318,15 @@ class TimeLapseCamera:
             print("Quit")
             return False
         return True
+    
+    def return_to_default(self):
+        delta = (time.time() - self.last_keypress)
+        if delta > 120:
+            self.selected_project = self.active_project
+            self.playback_speed = self.PLAYBACK_SPEEDS[4]
+            self.default = True
+            print("Returning to Default")
+
 
     def main_loop(self):
         """Main loop for capturing images and handling playback."""
@@ -261,6 +336,8 @@ class TimeLapseCamera:
             if time.time() - self.last_picture_time >= self.CAPTURE_INTERVAL:
                 self.capture_image()
             self.play_movie()
+            if not self.default:
+                self.return_to_default()
 
     def cleanup(self):
         """Releases resources and cleans up before exiting."""
