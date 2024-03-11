@@ -5,21 +5,22 @@ import cv2
 
 class TimeLapseCamera:
     """A class for creating time-lapse videos using a connected camera."""
-    
+
     # Constants
+    WIDTH = 1280 # width of the captured image
+    HEIGHT = 970 # height of the captured image
+    LANDSCAPE = True #  orientation of the display
+    ON_RASPI = False # set True if this codes runs on a raspberr pi
+    FULLSCREEN = False # set True for performance mode
     CAPTURE_INTERVAL = 5  # Interval between image captures in seconds
     DEFAULT_PLAYBACK_SPEED = 1  # Default playback speed when reviewing images
+    PLAYBACK_SPEEDS = [16, 32, 64, 128, 256, 512, 1028]  # Playback speeds for reviewing images
     LOG_PATH = "log.txt"  # Path to the log file
     PROJECTS_FOLDER = "projects"  # Folder where project images are stored
     DEFAULT_PROJECT = "default"  # Default project name
-    PLAYBACK_SPEEDS = [16, 32, 64, 128, 256]  # Playback speeds for reviewing images
     WINDOW_NAME = "Zeitmaschine"  # Window name for the display
-    PIXELS_INSCRIPTION = 15
-    WIDTH = 1920
-    HEIGHT = 1080
-    LANDSCAPE = True
-    ON_RASPI = False
-    FULLSCREEN = False
+    PIXELS_INSCRIPTION = 15 # number of pixels used on the upper left corner of the image to encode elapsed time
+    USB_PATH = ""
 
     def __init__(self):
         """Initializes the TimeLapseCamera object."""
@@ -45,11 +46,6 @@ class TimeLapseCamera:
         self.program_start_time = time.time()
         self.last_picture_time = self.program_start_time - self.CAPTURE_INTERVAL
         self.last_keypress = time.time()
-    
-    def interrupt(self, other):
-        print("Button!", other)
-        self.keyboard.press('f')
-        self.keyboard.release('f')
 
     def initialize(self):
         """Initializes the camera and project settings."""
@@ -314,7 +310,7 @@ class TimeLapseCamera:
             self.img_shown_index = 1
             print("Select", self.selected_project_index, self.selected_project)
             self.img_max_index = self.projects_dict[self.selected_project]
-        elif self.key == ord('q'):
+        elif self.key == 27: # escape key
             print("Quit")
             return False
         return True
