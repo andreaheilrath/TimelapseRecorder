@@ -40,7 +40,7 @@ sudo dtoverlay gpio-key gpio=22 keycode=1 label="Esc" gpio_pull=2
 sudo dtoverlay gpio-key gpio=10 keycode=408 label="reboot" gpio_pull=2
 ```
 
-![](imgs\GPIO-Pinout-Diagram.png)
+![](/imgs/GPIO-Pinout-Diagram.png)
 
 ## Autostart on Raspberry PI
 
