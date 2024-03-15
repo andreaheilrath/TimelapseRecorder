@@ -12,6 +12,15 @@ This code provides a framework for recording and displaying a timelapse for wind
 
 ## Using USB Camera on Raspberry PI
 
+USB cameras may be tricky on the PI in combination with opencv.
+
+**IMPORTANT: MAKE SURE THE CAMERA IS PLUGGED INTO AN USB 2.0 PORT. USING USB 3.0. WILL THROW AN ERROR!**
+
+To check the available resolutions, use the following console command:
+```v4l2-ctrl -V ```
+
+Since USB 2.0 is not capable to transfer uncompressed images of high resolution, MJPG encoding has to be used. This happens in the python code during the setup of the opencv capture:
+```self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))``` 
 
 
 ## GPIO Buttons as Keyboard
@@ -35,8 +44,18 @@ sudo dtoverlay gpio-key gpio=10 keycode=408 label="reboot" gpio_pull=2
 
 ## Autostart on Raspberry PI
 
+To start the python program automatically at the startup, I used the "Traditional System Method (All Users)" as mentioned in the forum post [STICKY: How to use Autostart - Raspberry Pi OS (Desktop)](https://forums.raspberrypi.com/viewtopic.php?t=294014)
 
-Raspberry Pi OS now uses the ``/etc/xdg/autostart`` directory to start some background apps. You can use this directory to start apps or scripts which will apply to all users. 
-Note that autostart here is a directory and not a file.
-This method does not use an autostart file. It uses filename.desktop files instead. See example .desktop file below.
+Raspberry Pi OS uses the ``/etc/xdg/autostart`` directory to start some background apps. 
+You can use this directory to start apps or scripts which will apply to all users. 
+Note that autostart is a directory and not a file.
+This method does not use an autostart file. It uses filename.desktop files instead.
 
+To start the ``timelapse.py`` script, create a file ``timelapse.deskop`` in the ``/etc/xdg/autostart`` folder, containing the following:
+
+```
+[Desktop Entry]
+Name=File Manager
+Exec=pcmanfm
+Type=Application
+```
