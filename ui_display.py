@@ -16,8 +16,7 @@ class UIDisplay:
         if config["fullscreen"]:
             cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-        self.playback_speed = self.DEFAULT_PLAYBACK_SPEED
-        self.playback_speed_index = 0    
+        self.state['playback_speed']  = self.DEFAULT_PLAYBACK_SPEED 
 
     def play_movie(self):
         """Plays the captured images as a time-lapse movie."""
@@ -31,15 +30,14 @@ class UIDisplay:
     def return_to_default(self):
         delta = (time.time() - self.state['last_keypress'])
         if delta > 120:
-            self.selected_project = self.active_project
+            self.state['selected_project'] = self.state['active_project']
             self.state['playback_speed'] = self.config['playback_speeds'][4]
             self.default = True
             print("Returning to Default")
 
     def update_display(self, index):
             """Updates the display with the image at the given index."""
-
-            img_filename = self.state['base_file_name'] + f"{index}.jpg"
+            img_filename = self.state['base_url_display'] + f"{index}.jpg"
             frame = cv2.imread(img_filename)
 
             if frame is not None:
@@ -50,19 +48,19 @@ class UIDisplay:
                 font_weight = 1
                 font_color = (255, 255, 255)
 
-                if self.LANDSCAPE:
-                    UI_element = np.zeros((60,self.WIDTH-self.PIXELS_INSCRIPTION,3), np.uint8)
+                if self.config['landscape']:
+                    UI_element = np.zeros((60,self.config['width']-self.config['pixels_for_timestamp'],3), np.uint8)
 
                     # draw black background for text
-                    cv2.rectangle(UI_element, (0, 0), (self.WIDTH-self.PIXELS_INSCRIPTION, 59), (0, 0, 0), -1)
+                    cv2.rectangle(UI_element, (0, 0), (self.config['width']-self.config['pixels_for_timestamp'], 59), (0, 0, 0), -1)
                     
                     # print elapsed time on canvas
                     space = 120
                     left_space = 30
-                    value_days = int(frame[self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
-                    value_hours = int(frame[self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
-                    value_minutes = int(frame[2*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
-                    value_seconds = int(frame[3*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                    value_days = int(frame[self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
+                    value_hours = int(frame[self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
+                    value_minutes = int(frame[2*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
+                    value_seconds = int(frame[3*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
                     elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
                     cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), font, font_size, font_color, font_weight)
                     cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), font, font_size, font_color, font_weight)
@@ -74,31 +72,31 @@ class UIDisplay:
                     cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), font, font_size, font_color, font_weight)
                     
                     # print project on canvas
-                    cv2.putText(UI_element, str(self.selected_project), (6*self.WIDTH//8, height), font, font_size, font_color, font_weight)
+                    cv2.putText(UI_element, str(self.state['selected_project']), (6*self.config['width']//8, height), font, font_size, font_color, font_weight)
                     
                     # print playback speed on canvas
-                    if self.playback_speed == 1:
+                    if self.state['playback_speed']  == 1:
                         icon = "> "
-                    elif self.playback_speed > 1:
+                    elif self.state['playback_speed']  > 1:
                         icon = ">>"
-                    elif self.playback_speed < 1:
+                    elif self.state['playback_speed']  < 1:
                         icon = "<<"
-                    cv2.putText(UI_element, icon + str(abs(self.playback_speed)) + "x", (4*self.WIDTH//10, height), font, font_size, font_color, font_weight)      
-                    frame[0:60, self.PIXELS_INSCRIPTION:self.WIDTH] = UI_element
+                    cv2.putText(UI_element, icon + str(abs(self.state['playback_speed'] )) + "x", (4*self.config['width']//10, height), font, font_size, font_color, font_weight)      
+                    frame[0:60, self.config['pixels_for_timestamp']:self.config['width']] = UI_element
                 
                 else:
-                    UI_element = np.zeros((60,self.HEIGHT-self.PIXELS_INSCRIPTION,3), np.uint8)
+                    UI_element = np.zeros((60,self.config['height']-self.config['pixels_for_timestamp'],3), np.uint8)
 
                     # draw black background for text
-                    cv2.rectangle(UI_element, (0, 0), (self.HEIGHT-self.PIXELS_INSCRIPTION, 59), (0, 0, 0), -1)
+                    cv2.rectangle(UI_element, (0, 0), (self.config['height']-self.config['pixels_for_timestamp'], 59), (0, 0, 0), -1)
                     
                     # print elapsed time on canvas
                     space = 100
                     left_space = 680
-                    value_days = int(frame[self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
-                    value_hours = int(frame[self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
-                    value_minutes = int(frame[2*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
-                    value_seconds = int(frame[3*self.PIXELS_INSCRIPTION + self.PIXELS_INSCRIPTION //2, self.PIXELS_INSCRIPTION//2].mean())
+                    value_days = int(frame[self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
+                    value_hours = int(frame[self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
+                    value_minutes = int(frame[2*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
+                    value_seconds = int(frame[3*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
                     elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
                     cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), font, font_size, font_color, font_weight)
                     cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), font, font_size, font_color, font_weight)
@@ -110,23 +108,25 @@ class UIDisplay:
                     cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), font, font_size, font_color, font_weight)
                     
                     # print project on canvas
-                    cv2.putText(UI_element, str(self.selected_project), (20, height), font, font_size, font_color, font_weight)
+                    cv2.putText(UI_element, str(self.state['selected_project']), (20, height), font, font_size, font_color, font_weight)
                     
                     # print playback speed on canvas
-                    if self.playback_speed == 1:
+                    if self.state['playback_speed']  == 1:
                         icon = "> "
-                    elif self.playback_speed > 1:
+                    elif self.state['playback_speed']  > 1:
                         icon = ">>"
-                    elif self.playback_speed < 1:
+                    elif self.state['playback_speed']  < 1:
                         icon = "<<"
-                    cv2.putText(UI_element, icon + str(abs(self.playback_speed)) + "x", (4*self.HEIGHT//10, height), font, font_size, font_color, font_weight)      
+                    cv2.putText(UI_element, icon + str(abs(self.state['playback_speed'] )) + "x", (4*self.config['height']//10, height), font, font_size, font_color, font_weight)      
                     
                     UI_element = cv2.rotate(UI_element, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-                    frame[self.PIXELS_INSCRIPTION:self.HEIGHT, 0:60] = UI_element
+                    frame[self.config['pixels_for_timestamp']:self.config['height'], 0:60] = UI_element
 
                 cv2.imshow(self.WINDOW_NAME, frame)
   
-
+    def map_255_time(self, stats):
+        return [stats[0] // 10, stats[1] // 10, stats[2] // 4, stats[3] // 4] 
+    
     def cleanup(self):
         cv2.destroyAllWindows()

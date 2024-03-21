@@ -2,8 +2,6 @@ import os
 import time
 import json
 import numpy as np
-import cv2
-import logging
 
 import cameracapture as cc
 import fileorga as fo
@@ -12,24 +10,26 @@ import ui_display as uid
 
 class TimeLapse:
     """A class for creating time-lapse videos using a connected camera."""
-    ON_RASPI = False # set True if this codes runs on a raspberr pi
     LOG_PATH = "log.txt"  # Path to the log file
-    CAPTURE_INTERVAL = 5  # Interval between image captures in seconds
 
     def __init__(self):
         """Initializes the TimeLapseCamera object."""
         # Camera and image tracking
         self.state = {}
         self.state['program_start_time'] = time.time()
-        self.state['base_file_name'] = ''
+        self.state['base_url_display'] = None
 
         self.state['active_project'] = None
+        self.state['base_url_active'] = None
         self.state['img_capture_index'] = 0
 
         self.state['projects'] = []
         self.state['projects_dict'] = {}
         self.state['selected_project'] = None
         self.state['selected_project_index'] = 0
+        self.state['img_file_prefix'] = "image_"
+        self.img_file_prefix = "image_"
+        
    
         self.state['img_shown_index'] = 1
         self.state['img_max_index'] = 0
@@ -39,9 +39,6 @@ class TimeLapse:
         self.state['default'] = False
         self.state['last_keypress'] = None
         self.state['key'] = None
-
-        self.img_file_prefix = "image_"
-        
         
         with open('config.json') as config_file:
             self.config = json.load(config_file)
@@ -52,10 +49,10 @@ class TimeLapse:
         self.ui_display = uid.UIDisplay(self.config, self.state)
 
         # Timing and Playback controls
-
-        self.last_picture_time = self.state['program_start_time'] - self.config["capture_interval"]
+        self.last_picture_time = self.state['program_start_time'] - self.config['capture_interval']
         self.state['last_keypress']  = time.time()
 
+        # Init
         self.read_log_file()        
         self.fileorga.setup_project(self.state)
         self.write_log_file()
@@ -81,17 +78,17 @@ class TimeLapse:
         if self.state['key'] in [ord('d'), ord('a')]:
             self.state['last_keypress']  = time.time()
             self.state['default'] = False
-            self.playback_speed = self.config['playback_speeds'][self.state['playback_speed_index']] * (-1 if self.state['key'] == ord('a') else 1)
+            self.state['playback_speed']  = self.config['playback_speeds'][self.state['playback_speed_index']] * (-1 if self.state['key'] == ord('a') else 1)
             self.state['playback_speed_index'] = (self.state['playback_speed_index'] + 1) % len(self.config['playback_speeds'])
             direction = "backward" if self.state['key'] == ord('a') else "forward"
-            print(f"{direction} speed {self.playback_speed}")
+            print(f"{direction} speed {self.state['playback_speed'] }")
         elif self.state['key'] == ord('s'):
             self.state['last_keypress']  = time.time()
             self.state['default'] = False
-            if self.playback_speed > 0:
-                self.playback_speed = self.config['default_playback_speed']
+            if self.state['playback_speed']  > 0:
+                self.state['playback_speed']  = self.config['default_playback_speed']
             else:
-                self.playback_speed = -1* self.config['default_playback_speed']
+                self.state['playback_speed']  = -1* self.config['default_playback_speed']
             print("Play/Pause")
         elif self.state['key'] in [ord('e'), ord('w')]:
             self.state['last_keypress']  = time.time()
@@ -100,10 +97,12 @@ class TimeLapse:
                 self.state['selected_project_index'] = (self.state['selected_project_index'] + 1) % len(self.state['projects'])
             else:
                 self.state['selected_project_index'] = (self.state['selected_project_index'] - 1) % len(self.state['projects'])
-            self.selected_project = self.state['projects'][self.state['selected_project_index']]
-            self.img_shown_index = 1
-            print("Select", self.state['selected_project_index'], self.selected_project)
-            self.img_max_index = self.state['projects_dict'][self.selected_project]
+            self.state['selected_project'] = self.state['projects'][self.state['selected_project_index']]
+            self.state['img_shown_index'] = 1
+            print("Select", self.state['selected_project_index'], self.state['selected_project'])
+            self.state['img_max_index'] = self.state['projects_dict'][self.state['selected_project']]
+            self.state['base_url_display'] = os.path.join(self.config["projects_folder"], self.state["selected_project"], self.state['img_file_prefix'])
+
         elif self.state['key'] == 27: # escape key
             print("Quit")
             return False
@@ -114,13 +113,13 @@ class TimeLapse:
         while True:
             if not self.handle_key_press():
                 break
-            if time.time() - self.last_picture_time >= self.CAPTURE_INTERVAL:
+            if time.time() - self.last_picture_time >= self.config['capture_interval']:
                 elapsed_time = int(time.time() - self.state['program_start_time'])
-                print(self.config["projects_folder"], self.state["active_project"])
-                base_img_path = os.path.join(self.config["projects_folder"], self.state["active_project"], self.img_file_prefix)
-                img_path = base_img_path + str(self.state["img_capture_index"]) + ".jpg"
+                img_path = self.state['base_url_active'] + str(self.state["img_capture_index"]) + ".jpg"             
                 self.camcap.image(elapsed_time, img_path)
+                
                 self.last_picture_time = time.time()
+                
                 if self.state["selected_project"] == self.state["active_project"]:
                     self.state["img_max_index"] = self.state["img_capture_index"]
                 self.state["img_capture_index"] += 1
@@ -130,13 +129,10 @@ class TimeLapse:
             if not self.state['default']:
                 self.ui_display.return_to_default()
 
-    def cleanup(self):
-        """Releases resources and cleans up before exiting."""
-        if self.cap:
-            self.cap.release()
-        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     timelapse = TimeLapse()
+    print(timelapse.config)
     timelapse.main_loop()
-    timelapse.cleanup()
+    timelapse.camcap.cleanup()
+    timelapse.ui_display.cleanup()

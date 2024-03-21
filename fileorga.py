@@ -19,8 +19,11 @@ class FileOrga:
         self.select_project()
         self.state['selected_project'] = self.state['active_project']
         self.state['selected_project_index'] = self.state['projects'].index(self.state['selected_project'])
+        
+        self.state['base_url_active'] = os.path.join(self.config["projects_folder"], self.state["active_project"], self.state['img_file_prefix'])
+        self.state['base_url_display'] = self.state['base_url_active']
+        
         print(f"Project: {self.state['active_project']} | Current Image Index: {self.state['img_capture_index']}")
-        print(self.state['selected_project_index'])
 
     def get_projects(self):
         """Returns a list of projects sorted by creation time."""

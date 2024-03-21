@@ -1,6 +1,6 @@
 {
-    "width": 1280,
-    "height": 970,
+    "width": 1920,
+    "height": 1080,
     "capture_interval": 5,
     "pixels_for_timestamp": 15,
     "projects_folder" : "projects",
@@ -8,5 +8,6 @@
     "default_playback_speed" : 1,
     "playback_speeds" : [16, 32, 64, 128, 256, 512, 1028],
     "fullscreen" : false,
+    "landscape" : true,
     "on_raspberry": false
   }
