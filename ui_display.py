@@ -26,8 +26,7 @@ class UIDisplay:
         else:
             self.state['img_shown_index']  = 0
         self.update_display(self.state['img_shown_index'] )
-        print(self.config['capture_interval'], self.state['playback_speed'])
-        self.key = cv2.waitKey(int(1000 * self.config['capture_interval'] / abs(self.state['playback_speed'])))
+        self.state['key'] = cv2.waitKey(int(1000 * self.config['capture_interval'] / abs(self.state['playback_speed'])))
 
     def return_to_default(self):
         delta = (time.time() - self.state['last_keypress'])

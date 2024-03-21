@@ -14,16 +14,16 @@ class CameraCapture:
         self.on_raspberry = config["on_raspberry"]
         self.cap = self.initialize()
    
-    def initialize(self):
+    def initialize(self, device_number = 1):
         """Attempts to initialize the camera."""
         # check current usb camera settings in terminal
         # v4l2-ctl -V 
         # check available usb camera settings in terminal
         # v4l2-ctl --list-formats-ext
         if self.on_raspberry:
-            cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+            cap = cv2.VideoCapture(device_number, cv2.CAP_V4L2)
         else:
-            cap = cv2.VideoCapture(0)
+            cap = cv2.VideoCapture(device_number)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
@@ -48,6 +48,7 @@ class CameraCapture:
         frame[0 : self.PIXELS_INSCRIPTION, 2*self.PIXELS_INSCRIPTION : 3*self.PIXELS_INSCRIPTION] = (stats[2], stats[2], stats[2])
         frame[3*self.PIXELS_INSCRIPTION : 4*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[3], stats[3], stats[3])
         frame[0 : self.PIXELS_INSCRIPTION,3*self.PIXELS_INSCRIPTION : 4*self.PIXELS_INSCRIPTION] = (stats[3], stats[3], stats[3])
+        print('save_image_with_timestamp', img_path)
         cv2.imwrite(img_path, frame)
 
     def map_time_255(self, elapsed_time):
