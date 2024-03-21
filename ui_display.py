@@ -6,7 +6,6 @@ class UIDisplay:
     DEFAULT_PLAYBACK_SPEED = 1  # Default playback speed when reviewing images
     PLAYBACK_SPEEDS = [16, 32, 64, 128, 256, 512, 1028]  # Playback speeds for reviewing images
     FULLSCREEN = False # set True for performance mode
-    WINDOW_NAME = "Zeitmaschine"  # Window name for the display
 
     def __init__(self, config, state):
         self.window_name = "Time Lapse"
@@ -14,7 +13,7 @@ class UIDisplay:
         self.config = config
         cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
         if config["fullscreen"]:
-            cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
         self.state['playback_speed']  = self.DEFAULT_PLAYBACK_SPEED 
 
@@ -32,7 +31,7 @@ class UIDisplay:
         if delta > 120:
             self.state['selected_project'] = self.state['active_project']
             self.state['playback_speed'] = self.config['playback_speeds'][4]
-            self.default = True
+            self.state['default'] = True
             print("Returning to Default")
 
     def update_display(self, index):
@@ -40,13 +39,16 @@ class UIDisplay:
             img_filename = self.state['base_url_display'] + f"{index}.jpg"
             frame = cv2.imread(img_filename)
 
-            if frame is not None:
-                font = cv2.FONT_HERSHEY_DUPLEX #cv2.FONT_HERSHEY_SIMPLEX #
+            font_specs = {
+                'fontFace' : cv2.FONT_HERSHEY_DUPLEX, #cv2.FONT_HERSHEY_SIMPLEX #
+                'fontScale' : 1.2,
+                'color' : (255, 255, 255),
+                'thickness' : 1
+            }
 
+            if frame is not None:
+                
                 height = 40
-                font_size = 1.2
-                font_weight = 1
-                font_color = (255, 255, 255)
 
                 if self.config['landscape']:
                     UI_element = np.zeros((60,self.config['width']-self.config['pixels_for_timestamp'],3), np.uint8)
@@ -62,17 +64,17 @@ class UIDisplay:
                     value_minutes = int(frame[2*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
                     value_seconds = int(frame[3*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
                     elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
-                    cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, str(elapsed_time[2]), (left_space + 2*space , height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, str(elapsed_time[3]), (left_space + 3*space, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 'd', (left_space + space//2, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 'h', (left_space + space + space//2, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 'm', (left_space + 2*space + space//2, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), font, font_size, font_color, font_weight)
+                    cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), **font_specs)
+                    cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), **font_specs)
+                    cv2.putText(UI_element, str(elapsed_time[2]), (left_space + 2*space , height), **font_specs)
+                    cv2.putText(UI_element, str(elapsed_time[3]), (left_space + 3*space, height), **font_specs)
+                    cv2.putText(UI_element, 'd', (left_space + space//2, height), **font_specs)
+                    cv2.putText(UI_element, 'h', (left_space + space + space//2, height), **font_specs)
+                    cv2.putText(UI_element, 'm', (left_space + 2*space + space//2, height), **font_specs)
+                    cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height),**font_specs)
                     
                     # print project on canvas
-                    cv2.putText(UI_element, str(self.state['selected_project']), (6*self.config['width']//8, height), font, font_size, font_color, font_weight)
+                    cv2.putText(UI_element, str(self.state['selected_project']), (6*self.config['width']//8, height), **font_specs)
                     
                     # print playback speed on canvas
                     if self.state['playback_speed']  == 1:
@@ -81,7 +83,7 @@ class UIDisplay:
                         icon = ">>"
                     elif self.state['playback_speed']  < 1:
                         icon = "<<"
-                    cv2.putText(UI_element, icon + str(abs(self.state['playback_speed'] )) + "x", (4*self.config['width']//10, height), font, font_size, font_color, font_weight)      
+                    cv2.putText(UI_element, icon + str(abs(self.state['playback_speed'] )) + "x", (4*self.config['width']//10, height), **font_specs)      
                     frame[0:60, self.config['pixels_for_timestamp']:self.config['width']] = UI_element
                 
                 else:
@@ -98,17 +100,17 @@ class UIDisplay:
                     value_minutes = int(frame[2*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
                     value_seconds = int(frame[3*self.config['pixels_for_timestamp'] + self.config['pixels_for_timestamp'] //2, self.config['pixels_for_timestamp']//2].mean())
                     elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
-                    cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, str(elapsed_time[2]), (left_space + 2*space , height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, str(elapsed_time[3]), (left_space + 3*space, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 'd', (left_space + space//2, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 'h', (left_space + space + space//2, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 'm', (left_space + 2*space + space//2, height), font, font_size, font_color, font_weight)
-                    cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), font, font_size, font_color, font_weight)
+                    cv2.putText(UI_element, str(elapsed_time[0]), (left_space, height), **font_specs)
+                    cv2.putText(UI_element, str(elapsed_time[1]), (left_space + space , height), **font_specs)
+                    cv2.putText(UI_element, str(elapsed_time[2]), (left_space + 2*space , height), **font_specs)
+                    cv2.putText(UI_element, str(elapsed_time[3]), (left_space + 3*space, height), **font_specs)
+                    cv2.putText(UI_element, 'd', (left_space + space//2, height), **font_specs)
+                    cv2.putText(UI_element, 'h', (left_space + space + space//2, height), **font_specs)
+                    cv2.putText(UI_element, 'm', (left_space + 2*space + space//2, height), **font_specs)
+                    cv2.putText(UI_element, 's', (left_space + 3*space + space//2, height), **font_specs)
                     
                     # print project on canvas
-                    cv2.putText(UI_element, str(self.state['selected_project']), (20, height), font, font_size, font_color, font_weight)
+                    cv2.putText(UI_element, str(self.state['selected_project']), (20, height), **font_specs)
                     
                     # print playback speed on canvas
                     if self.state['playback_speed']  == 1:
@@ -117,13 +119,13 @@ class UIDisplay:
                         icon = ">>"
                     elif self.state['playback_speed']  < 1:
                         icon = "<<"
-                    cv2.putText(UI_element, icon + str(abs(self.state['playback_speed'] )) + "x", (4*self.config['height']//10, height), font, font_size, font_color, font_weight)      
+                    cv2.putText(UI_element, icon + str(abs(self.state['playback_speed'] )) + "x", (4*self.config['height']//10, height), **font_specs)      
                     
                     UI_element = cv2.rotate(UI_element, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
                     frame[self.config['pixels_for_timestamp']:self.config['height'], 0:60] = UI_element
 
-                cv2.imshow(self.WINDOW_NAME, frame)
+                cv2.imshow(self.window_name, frame)
   
     def map_255_time(self, stats):
         return [stats[0] // 10, stats[1] // 10, stats[2] // 4, stats[3] // 4] 

@@ -8,11 +8,13 @@ class CameraCapture:
     PIXELS_INSCRIPTION = 15 # number of pixels used on the upper left corner of the image to encode elapsed time
 
 
-    def __init__(self, config):
+    def __init__(self, config, state):
         self.width = config["width"]
         self.height = config["height"]
         self.on_raspberry = config["on_raspberry"]
         self.cap = self.initialize()
+        self.config = config
+        self.state = state
    
     def initialize(self, device_number = 0):
         """Attempts to initialize the camera."""
@@ -29,25 +31,28 @@ class CameraCapture:
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
         return cap
     
-    def image(self, elapsed_time, img_path):
+    def image(self, elapsed_time):
         """Captures an image from the camera and saves it with a timestamp."""
         if not self.cap:
             print("Camera not initialized.")
             return
         ret, frame = self.cap.read()
         if ret:
-            self.save_image_with_timestamp(elapsed_time, frame, img_path)
+            img_path = self.state['base_url_active'] + str(self.state["img_capture_index"]) + ".jpg"   
+            self.save_image_with_timestamp(frame, img_path, elapsed_time)
 
-    def save_image_with_timestamp(self, elapsed_time, frame, img_path):
+    def save_image_with_timestamp(self, frame, img_path, elapsed_time):
         """Saves the image with a timestamp overlay."""
         stats = self.map_time_255(elapsed_time)
-        frame[0 : self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[0], stats[0], stats[0])
-        frame[self.PIXELS_INSCRIPTION : 2*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[1], stats[1], stats[1])
-        frame[0 : self.PIXELS_INSCRIPTION, self.PIXELS_INSCRIPTION : 2*self.PIXELS_INSCRIPTION] = (stats[1], stats[1], stats[1])
-        frame[2*self.PIXELS_INSCRIPTION : 3*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[2], stats[2], stats[2])
-        frame[0 : self.PIXELS_INSCRIPTION, 2*self.PIXELS_INSCRIPTION : 3*self.PIXELS_INSCRIPTION] = (stats[2], stats[2], stats[2])
-        frame[3*self.PIXELS_INSCRIPTION : 4*self.PIXELS_INSCRIPTION, 0 : self.PIXELS_INSCRIPTION] = (stats[3], stats[3], stats[3])
-        frame[0 : self.PIXELS_INSCRIPTION,3*self.PIXELS_INSCRIPTION : 4*self.PIXELS_INSCRIPTION] = (stats[3], stats[3], stats[3])
+        pix_range = self.config["pixels_for_timestamp"]
+        frame[0 : pix_range, 0 : pix_range] =               stats[0] #(stats[0], stats[0], stats[0])
+        frame[pix_range : 2*pix_range, 0 : pix_range] =     (stats[1], stats[1], stats[1])
+        frame[0 : pix_range, pix_range : 2*pix_range] =     (stats[1], stats[1], stats[1])
+        frame[2*pix_range : 3*pix_range, 0 : pix_range] =   (stats[2], stats[2], stats[2])
+        frame[0 : pix_range, 2*pix_range : 3*pix_range] =   (stats[2], stats[2], stats[2])
+        frame[3*pix_range : 4*pix_range, 0 : pix_range] =   (stats[3], stats[3], stats[3])
+        frame[0 : pix_range,3*pix_range : 4*pix_range] =    (stats[3], stats[3], stats[3])
+        
         cv2.imwrite(img_path, frame)
 
     def map_time_255(self, elapsed_time):

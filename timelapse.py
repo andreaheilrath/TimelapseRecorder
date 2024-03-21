@@ -44,7 +44,7 @@ class TimeLapse:
             self.config = json.load(config_file)
 
         # SubModules
-        self.camcap = cc.CameraCapture(self.config)
+        self.camcap = cc.CameraCapture(self.config, self.state)
         self.fileorga = fo.FileOrga(self.config, self.state)
         self.ui_display = uid.UIDisplay(self.config, self.state)
 
@@ -56,7 +56,6 @@ class TimeLapse:
         self.read_log_file()        
         self.fileorga.setup_project(self.state)
         self.write_log_file()
-
 
     def read_log_file(self):
         """Reads the log file to resume the last session's state."""
@@ -115,9 +114,7 @@ class TimeLapse:
                 break
             if time.time() - self.last_picture_time >= self.config['capture_interval']:
                 elapsed_time = int(time.time() - self.state['program_start_time'])
-                img_path = self.state['base_url_active'] + str(self.state["img_capture_index"]) + ".jpg"             
-                self.camcap.image(elapsed_time, img_path)
-                
+                self.camcap.image(elapsed_time)
                 self.last_picture_time = time.time()
                 
                 if self.state["selected_project"] == self.state["active_project"]:
