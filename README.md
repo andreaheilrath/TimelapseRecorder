@@ -2,6 +2,8 @@
 
 This code provides a framework for recording and displaying a timelapse for windows or unix systems (including Raspberry PI).
 
+
+
 ## Materials
 
 * Rapsberry Pi 4 (with SD Card, microHDMI to HDMI Cable and Power Supply)
@@ -9,6 +11,9 @@ This code provides a framework for recording and displaying a timelapse for wind
 * Light and Holder for the Camera, e.g. [LogiLink AA0150 - LED Ring Light](https://www.amazon.de/LogiLink-AA0150-Smartphone-3-Farbmodi-professionelle-Schwarz/dp/B09993B2PS)
 * Arcade Buttons, e.g. [Arcade Buttons, 44mm](https://www.berrybase.de/arcade-button-44mm-beleuchtet-led-12v-dc)
 * more Buttons (optional)
+
+A 3D model of the setup can be found [here](/hardware/Zeitmaschine.f3d)
+![](/imgs/Zeitmaschine_Render.png)
 
 ## Using USB Camera on Raspberry PI
 
