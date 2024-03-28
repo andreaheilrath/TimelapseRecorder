@@ -3,9 +3,9 @@ import time
 import json
 import numpy as np
 
-import cameracapture as cc
-import fileorga as fo
-import ui_display as uid
+import modules.cameracapture as cc
+import modules.projecthandling as pro
+import modules.ui_display as uid
 
 
 class TimeLapse:
@@ -45,7 +45,7 @@ class TimeLapse:
 
         # SubModules
         self.camcap = cc.CameraCapture(self.config, self.state)
-        self.fileorga = fo.FileOrga(self.config, self.state)
+        self.projecthandling = pro.FileOrga(self.config, self.state)
         self.ui_display = uid.UIDisplay(self.config, self.state)
 
         # Timing and Playback controls
@@ -54,7 +54,7 @@ class TimeLapse:
 
         # Init
         self.read_log_file()        
-        self.fileorga.setup_project(self.state)
+        self.projecthandling.setup_project(self.state)
         self.write_log_file()
 
     def read_log_file(self):
@@ -113,6 +113,7 @@ class TimeLapse:
             if not self.handle_key_press():
                 break
             if time.time() - self.last_picture_time >= self.config['capture_interval']:
+                
                 elapsed_time = int(time.time() - self.state['program_start_time'])
                 self.camcap.image(elapsed_time)
                 self.last_picture_time = time.time()
