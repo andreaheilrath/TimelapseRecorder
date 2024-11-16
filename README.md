@@ -59,13 +59,18 @@ sudo dtoverlay gpio-key gpio=10 keycode=408 label="reboot" gpio_pull=2
 ## Autostart on Raspberry PI
 
 To start the python program automatically at the startup, I used the "Traditional System Method (All Users)" as mentioned in the forum post [STICKY: How to use Autostart - Raspberry Pi OS (Desktop)](https://forums.raspberrypi.com/viewtopic.php?t=294014)
-
-Raspberry Pi OS uses the ``/etc/xdg/autostart`` directory to start some background apps. 
-You can use this directory to start apps or scripts which will apply to all users. 
-Note that autostart is a directory and not a file.
 This method does not use an autostart file. It uses filename.desktop files instead.
 
-To start the ``timelapse.py`` script, create a file ``timelapse.deskop`` in the ``/etc/xdg/autostart`` folder, containing the following:
+Raspberry Pi OS uses the ``/etc/xdg/autostart`` directory to start some background apps. 
+Go to this directory via the console 
+
+``cd /etc/xdg/autostart``
+
+and create ``timelapse.deskop`` in the ``/etc/xdg/autostart`` folder by executing
+
+``sudo geany timelapse.desktop``
+
+and fill it with the following:
 
 ```
 [Desktop Entry]
