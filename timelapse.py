@@ -34,6 +34,7 @@ class TimeLapse:
         self.state['img_shown_index'] = 1
         self.state['img_max_index'] = 0
         self.state['playback_speed'] = 1
+        self.state['image_step'] = 1
         self.state['playback_speed_index'] = 0
         
         self.state['default'] = False
@@ -78,6 +79,7 @@ class TimeLapse:
             self.state['last_keypress']  = time.time()
             self.state['default'] = False
             self.state['playback_speed']  = self.config['playback_speeds'][self.state['playback_speed_index']] * (-1 if self.state['key'] == ord('a') else 1)
+            self.state['image_step'] = self.config['image_step'][self.state['playback_speed_index']] * (-1 if self.state['key'] == ord('a') else 1)
             self.state['playback_speed_index'] = (self.state['playback_speed_index'] + 1) % len(self.config['playback_speeds'])
             direction = "backward" if self.state['key'] == ord('a') else "forward"
             print(f"{direction} speed {self.state['playback_speed'] }")
@@ -85,9 +87,11 @@ class TimeLapse:
             self.state['last_keypress']  = time.time()
             self.state['default'] = False
             if self.state['playback_speed']  > 0:
-                self.state['playback_speed']  = self.config['default_playback_speed']
+                self.state['playback_speed']  = 1
+                self.state['image_step'] = 1
             else:
-                self.state['playback_speed']  = -1* self.config['default_playback_speed']
+                self.state['playback_speed']  = -1
+                self.state['image_step'] = -1
             print("Play/Pause")
         elif self.state['key'] in [ord('e'), ord('w')]:
             self.state['last_keypress']  = time.time()

@@ -53,7 +53,7 @@ class CameraCapture:
         frame[3*pix_range : 4*pix_range, 0 : pix_range] =   (stats[3], stats[3], stats[3])
         frame[0 : pix_range,3*pix_range : 4*pix_range] =    (stats[3], stats[3], stats[3])
         
-        cv2.imwrite(img_path, frame)
+        cv2.imwrite(img_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
     def map_time_255(self, elapsed_time):
         days = elapsed_time // 86400

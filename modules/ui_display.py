@@ -15,22 +15,26 @@ class UIDisplay:
         if config["fullscreen"]:
             cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-        self.state['playback_speed']  = self.DEFAULT_PLAYBACK_SPEED 
+        self.state['playback_speed']  = self.config['playback_speeds'][self.config['default_playback_speed_index']]
+        self.state['image_step'] = self.config['image_step'][self.config['default_playback_speed_index']]
 
     def play_movie(self):
         """Plays the captured images as a time-lapse movie."""
         if self.state['img_max_index']:
-            self.state['img_shown_index'] = (self.state['img_shown_index'] + (1 if self.state['playback_speed'] > 0 else -1)) % self.state['img_max_index']
+            self.state['img_shown_index'] = (self.state['img_shown_index'] + self.state['image_step']) % self.state['img_max_index']
         else:
             self.state['img_shown_index']  = 0
         self.update_display(self.state['img_shown_index'] )
-        self.state['key'] = cv2.waitKey(int(1000 * self.config['capture_interval'] / abs(self.state['playback_speed'])))
+        time_delta = 1000 * self.config['capture_interval'] / abs(self.state['playback_speed'])
+        if (time_delta < 46.87): time_delta = 46.87 #21.33 fps
+        self.state['key'] = cv2.waitKey(int(time_delta))
 
     def return_to_default(self):
         delta = (time.time() - self.state['last_keypress'])
         if delta > 120:
             self.state['selected_project'] = self.state['active_project']
-            self.state['playback_speed'] = self.config['playback_speeds'][4]
+            self.state['playback_speed']  = self.config['playback_speeds'][self.config['default_playback_speed_index']]
+            self.state['image_step'] = self.config['image_step'][self.config['default_playback_speed_index']]
             self.state['default'] = True
             print("Returning to Default")
 
