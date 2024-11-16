@@ -17,12 +17,16 @@ A 3D model of the setup can be found [here](/hardware/Zeitmaschine.f3d)
 
 ## Using USB Camera on Raspberry PI
 
-USB cameras may be tricky on the PI in combination with opencv.
+v4l2-ctl is a command-line tool for controlling video devices on Linux systems. 
 
-**IMPORTANT: MAKE SURE THE CAMERA IS PLUGGED INTO AN USB 2.0 PORT. USING USB 3.0. WILL THROW AN ERROR!**
+First, install it with
+```apt-get install v4l2-ctl```
 
 To check the available resolutions, use the following console command:
-```v4l2-ctrl -V ```
+```v4l2-ctrl -V```
+
+USB cameras may be tricky on the PI in combination with opencv.
+**IMPORTANT: MAKE SURE THE CAMERA IS PLUGGED INTO AN USB 2.0 PORT. USING USB 3.0. WILL THROW AN ERROR!**
 
 Since USB 2.0 is not capable to transfer uncompressed images of high resolution, MJPG encoding has to be used. This happens in the python code during the setup of the opencv capture:
 ```self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))``` 
