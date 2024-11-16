@@ -15,6 +15,14 @@ This code provides a framework for recording and displaying a timelapse for wind
 A 3D model of the setup can be found [here](/hardware/Zeitmaschine.f3d)
 ![](/imgs/Zeitmaschine_Render.png)
 
+## Install Python and its libraries
+
+Install OpenCV [The Raspberry PI Guide](https://raspberrypi-guide.github.io/programming/install-opencv)
+```
+sudo apt-get update
+sudo apt-get install python3-opencv
+```
+
 ## Using USB Camera on Raspberry PI
 
 v4l2-ctl is a command-line tool for controlling video devices on Linux systems. 
