@@ -20,7 +20,7 @@ A 3D model of the setup can be found [here](/hardware/Zeitmaschine.f3d)
 v4l2-ctl is a command-line tool for controlling video devices on Linux systems. 
 
 First, install it with
-```apt-get install v4l2-ctl```
+```sudo apt-get install v4l2-ctl```
 
 To check the available resolutions, use the following console command:
 ```v4l2-ctrl -V```
