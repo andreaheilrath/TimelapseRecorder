@@ -27,11 +27,8 @@ sudo apt-get install python3-opencv
 
 v4l2-ctl is a command-line tool for controlling video devices on Linux systems. 
 
-First, install it with
-```sudo apt-get install v4l2-ctl```
-
 To check the available resolutions, use the following console command:
-```v4l2-ctrl -V```
+```v4l2-ctl -V```
 
 USB cameras may be tricky on the PI in combination with opencv.
 **IMPORTANT: MAKE SURE THE CAMERA IS PLUGGED INTO AN USB 2.0 PORT. USING USB 3.0. WILL THROW AN ERROR!**
