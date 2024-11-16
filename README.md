@@ -3,7 +3,6 @@
 This code provides a framework for recording and displaying a timelapse for windows or unix systems (including Raspberry PI).
 
 
-
 ## Materials
 
 * Rapsberry Pi 4 (with SD Card, microHDMI to HDMI Cable and Power Supply)
@@ -14,6 +13,7 @@ This code provides a framework for recording and displaying a timelapse for wind
 
 A 3D model of the setup can be found [here](/hardware/Zeitmaschine.f3d)
 ![](/imgs/Zeitmaschine_Render.png)
+
 
 ## Install Python and its libraries
 
@@ -54,6 +54,14 @@ sudo dtoverlay gpio-key gpio=22 keycode=1 label="Esc" gpio_pull=2
 sudo dtoverlay gpio-key gpio=10 keycode=408 label="reboot" gpio_pull=2
 ```
 
+a / backwards / GPIO 2
+s / pause / GPIO 3
+d / forward / GPIO 4
+w / last project / GPIO 17
+e / next project / GPIO 18
+
+Ground also has to be connected to the buttons.
+
 ![](/imgs/GPIO-Pinout-Diagram.png)
 
 ## Autostart on Raspberry PI
@@ -71,7 +79,6 @@ and create ``timelapse.deskop`` in the ``/etc/xdg/autostart`` folder by executin
 ``sudo geany timelapse.desktop``
 
 and fill it with the following:
-**The Exec line has to be adapted, depending on the username and where the timelapse.py is located**
 
 ```
 [Desktop Entry]
@@ -79,3 +86,6 @@ Name=timelapse
 Exec=python3 /home/xstage/TimelapseRecorder/timelapse.py
 Type=Application
 ```
+
+
+**The Exec line has to be adapted, depending on the username and where the timelapse.py is located**
