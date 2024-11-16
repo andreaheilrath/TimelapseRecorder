@@ -71,10 +71,11 @@ and create ``timelapse.deskop`` in the ``/etc/xdg/autostart`` folder by executin
 ``sudo geany timelapse.desktop``
 
 and fill it with the following:
+**The Exec line has to be adapted, depending on the username and where the timelapse.py is located**
 
 ```
 [Desktop Entry]
-Name=File Manager
-Exec=pcmanfm
+Name=timelapse
+Exec=python3 /home/xstage/TimelapseRecorder/timelapse.py
 Type=Application
 ```
