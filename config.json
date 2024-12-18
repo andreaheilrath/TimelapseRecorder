@@ -10,8 +10,8 @@
     "pixels_for_timestamp": 15,
 
     "default_playback_speed_index" : 6,
-    "playback_speeds" : [16, 32, 64, 128, 256, 512, 1024, 2048, 4096],
-    "image_step" :      [ 1,  1,  1,   1,   1,    2,   4,    8,   16],
+    "playback_speeds" : [16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768],
+    "image_step" :      [ 1,  1,  1,   1,   1,    2,   4,    8,   16,   32,    64,   128],
 
     "projects_folder" : "projects",
     "default_project" : "default"
