@@ -35,7 +35,7 @@ class CameraCapture:
 
         ret, frame = self.cap.read()
         if ret:
-            img_path = f"{self.state.base_url_active}{self.state.img_capture_index}.jpg"
+            img_path = f"{self.state.baseUrl_record}{self.state.imgIndex_record}.jpg"
             self.save_image_with_timestamp(frame, img_path, elapsed_time)
             print(f"Image saved: {img_path}")
         else:

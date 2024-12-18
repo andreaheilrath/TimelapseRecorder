@@ -22,13 +22,14 @@ class UIDisplay:
 
     def play_movie(self):
         """Plays the captured images as a time-lapse movie."""
-        if self.state.img_max_index > 0:
-            self.state.img_shown_index = (self.state.img_shown_index + self.state.image_step) % self.state.img_max_index
+
+        if self.state.imgMaxIndex_display > 0:
+            self.state.imgIndex_display = (self.state.imgIndex_display + self.state.image_step) % self.state.imgMaxIndex_display
         else:
-            self.state.img_shown_index = 0
+            self.state.imgIndex_display = 0
 
         # Update the display
-        self.update_display(self.state.img_shown_index)
+        self.update_display(self.state.imgIndex_display)
 
         # Adjust time delay based on playback speed
         time_delta = max(46.87, 1000 * self.config["capture_interval"] / abs(self.state.playback_speed))
@@ -38,7 +39,7 @@ class UIDisplay:
         """Returns playback settings to default after inactivity."""
         delta = time.time() - self.state.last_keypress
         if delta > 120:
-            self.state.selected_project = self.state.active_project
+            self.state.projectName_display = self.state.projectName_record
             self.state.playback_speed = self.config["playback_speeds"][self.config["default_playback_speed_index"]]
             self.state.image_step = self.config["image_step"][self.config["default_playback_speed_index"]]
             self.state.default = True
@@ -46,7 +47,9 @@ class UIDisplay:
 
     def update_display(self, index):
         """Displays the image at the given index with overlays."""
-        img_filename = f"{self.state.base_url_display}{index}.jpg"
+
+        retrieved_index = self.state.imgIndices_display[index]
+        img_filename = f"{self.state.baseUrl_display}{retrieved_index}.jpg"
         frame = cv2.imread(img_filename)
 
         if frame is not None:
@@ -88,7 +91,7 @@ class UIDisplay:
         self._put_text(ui_element, f"{icon}{abs(self.state.playback_speed)}x", (width // 2, 40), font_specs)
 
         # Print project name
-        self._put_text(ui_element, self.state.selected_project, (6 * width // 8, 40), font_specs)
+        self._put_text(ui_element, self.state.projectName_display, (6 * width // 8, 40), font_specs)
 
         return ui_element
 
