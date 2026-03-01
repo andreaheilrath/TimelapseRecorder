@@ -1,11 +1,13 @@
 import cv2
 import time
+import os
 import numpy as np
 from typing import Any
 
 class UIDisplay:
     """Handles the user interface display for time-lapse playback."""
-    MIN_FRAME_DELAY_MS = 46.87
+    TARGET_FPS = 30
+    FRAME_DELAY_MS = int(1000 / TARGET_FPS)
     INACTIVITY_TIMEOUT_SECONDS = 120
     UI_BAR_HEIGHT = 60
     TIME_DIVISOR_DAYS_HOURS = 10
@@ -23,34 +25,62 @@ class UIDisplay:
             cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
         # Initialize playback speed and step
-        self.state.playback_speed = self.config["playback_speeds"][self.config["default_playback_speed_index"]]
-        self.state.image_step = self.config["image_step"][self.config["default_playback_speed_index"]]
+        default_index = self.config["default_playback_speed_index"]
+        self.state.playback_speed = self.config["playback_speeds"][default_index]
 
     def play_movie(self) -> None:
         """Plays the captured images as a time-lapse movie."""
         total_images = len(self.state.img_indices_display)
 
+        if total_images > 0 and self.state.is_paused:
+            if self.state.img_index_display < 0:
+                self.state.img_index_display = 0
+            self.update_display(self.state.img_index_display)
+            self.state.key = cv2.waitKey(self.FRAME_DELAY_MS)
+            return
+
         if total_images > 0:
-            self.state.img_index_display = (self.state.img_index_display + self.state.image_step) % total_images
+            if self.state.img_index_display < 0:
+                self.state.img_index_display = 0
+
+            frame_delta_seconds = max(1e-6, self.state.display_frame_delta_seconds)
+            frames_per_tick = (
+                self.state.playback_speed
+                * (1.0 / self.TARGET_FPS)
+                / frame_delta_seconds
+            )
+            self.state.frame_advance_accumulator += frames_per_tick
+            frame_step = int(self.state.frame_advance_accumulator)
+            if frame_step != 0:
+                self.state.frame_advance_accumulator -= frame_step
+                self.state.img_index_display = (self.state.img_index_display + frame_step) % total_images
             self.update_display(self.state.img_index_display)
 
-        # Adjust time delay based on playback speed.
-        time_delta = max(self.MIN_FRAME_DELAY_MS, 1000 * self.config["capture_interval"] / abs(self.state.playback_speed))
-        self.state.key = cv2.waitKey(int(time_delta))
+        self.state.key = cv2.waitKey(self.FRAME_DELAY_MS)
 
     def return_to_default(self) -> None:
         """Returns playback settings to default after inactivity."""
         delta = time.time() - self.state.last_keypress
         if delta > self.INACTIVITY_TIMEOUT_SECONDS:
-            self.state.project_name_display = self.state.project_name_record
-            if self.state.project_name_display in self.state.projects:
+            current_project = self.state.project_name_display
+            default_display = self.config.get("default_display")
+            target_project = default_display if default_display in self.state.projects else current_project
+
+            if target_project in self.state.projects:
+                self.state.project_name_display = target_project
                 self.state.project_name_display_index = self.state.projects.index(self.state.project_name_display)
-            self.state.base_url_display = self.state.base_url_record
-            self.state.img_indices_display = self.state.img_indices_record
-            self.state.img_max_index_display = len(self.state.img_indices_display)
+                self.state.base_url_display = os.path.join(
+                    self.config["projects_folder"],
+                    self.state.project_name_display,
+                    self.state.img_file_prefix,
+                )
+                self.state.img_indices_display = self.state.projects_dict[self.state.project_name_display]["indices"]
+
             self.state.img_index_display = -1
-            self.state.playback_speed = self.config["playback_speeds"][self.config["default_playback_speed_index"]]
-            self.state.image_step = self.config["image_step"][self.config["default_playback_speed_index"]]
+            self.state.display_frame_delta_seconds = self.state.projects_dict[self.state.project_name_display]["frame_delta_seconds"]
+            self.state.frame_advance_accumulator = 0.0
+            default_index = self.config["default_playback_speed_index"]
+            self.state.playback_speed = self.config["playback_speeds"][default_index]
             self.state.is_default_mode = True
             print("Returning to Default")
 

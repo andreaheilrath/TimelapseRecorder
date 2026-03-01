@@ -16,14 +16,12 @@ class ProgramState:
     base_url_record: str = ""
     img_index_record: int = 0
     img_indices_record: list[int] = field(default_factory=list)
-    img_max_index_record: int = 0
 
     project_name_display: str | None = None
     project_name_display_index: int = 0
     base_url_display: str = ""
     img_index_display: int = -1
     img_indices_display: list[int] = field(default_factory=list)
-    img_max_index_display: int = 0
 
     # Time and playback state
     program_start_time: float = field(default_factory=time.time)
@@ -31,5 +29,6 @@ class ProgramState:
     last_keypress: float = field(default_factory=time.time)
 
     playback_speed: int = 1
-    playback_speed_index: int = 0
-    image_step: int = 1
+    is_paused: bool = False
+    display_frame_delta_seconds: float = 1.0
+    frame_advance_accumulator: float = 0.0

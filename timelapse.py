@@ -32,10 +32,8 @@ class TimeLapse:
         "pixels_for_timestamp",
         "default_playback_speed_index",
         "playback_speeds",
-        "image_step",
         "projects_folder",
-        "default_project",
-        "default_display",
+        "default_project_name",
     }
 
     def __init__(self) -> None:
@@ -76,20 +74,53 @@ class TimeLapse:
             raise ValueError("Config value 'pixels_for_timestamp' must be > 0")
 
         playback_speeds = self.config["playback_speeds"]
-        image_steps = self.config["image_step"]
         default_speed_index = self.config["default_playback_speed_index"]
 
         if not isinstance(playback_speeds, list) or not playback_speeds:
             raise ValueError("Config value 'playback_speeds' must be a non-empty list")
-        if not isinstance(image_steps, list) or not image_steps:
-            raise ValueError("Config value 'image_step' must be a non-empty list")
-        if len(playback_speeds) != len(image_steps):
-            raise ValueError("Config lists 'playback_speeds' and 'image_step' must have the same length")
         if default_speed_index < 0 or default_speed_index >= len(playback_speeds):
             raise ValueError("Config value 'default_playback_speed_index' is out of range")
 
     def _project_image_base_path(self, project_name: str) -> str:
         return self.project_manager.project_image_base_path(project_name)
+
+    def _change_playback_speed_level(self, direction: int) -> None:
+        """Move one step in the speed ladder.
+
+        Ladder order:
+        negative max ... negative min ... positive min ... positive max
+        direction +1: move right (triggered by 'd')
+        direction -1: move left (triggered by 'a')
+        """
+        speeds = self.config["playback_speeds"]
+        level_count = len(speeds)
+
+        levels: list[tuple[int, int]] = []
+        for abs_index in range(level_count - 1, -1, -1):
+            levels.append((-speeds[abs_index], abs_index))
+        for abs_index in range(level_count):
+            levels.append((speeds[abs_index], abs_index))
+
+        current_speed = self.state.playback_speed
+        current_level_index = next(
+            (idx for idx, (speed, _) in enumerate(levels) if speed == current_speed),
+            None,
+        )
+
+        # If current speed is outside the configured ladder (e.g., +/-1 after pause),
+        # snap to the closest directional boundary around zero.
+        if current_level_index is None:
+            target_level_index = level_count if direction > 0 else level_count - 1
+            new_speed, _ = levels[target_level_index]
+            self.state.playback_speed = new_speed
+            return
+
+        new_level_index = max(0, min(len(levels) - 1, current_level_index + direction))
+        if new_level_index == current_level_index:
+            return
+
+        new_speed, _ = levels[new_level_index]
+        self.state.playback_speed = new_speed
 
     def read_log_file(self) -> None:
         """Reads the log file to resume the last session's state."""
@@ -114,18 +145,18 @@ class TimeLapse:
     def handle_key_press(self) -> bool:
         """Handles key press events for playback control."""
         key = self.state.key
-        if key in [self.KEY_FORWARD, self.KEY_BACKWARD]:
+        if key == self.KEY_FORWARD:
             self.state.last_keypress = time.time()
             self.state.is_default_mode = False
-            direction = -1 if key == self.KEY_BACKWARD else 1
-            self.state.playback_speed = self.config["playback_speeds"][self.state.playback_speed_index] * direction
-            self.state.image_step = self.config["image_step"][self.state.playback_speed_index] * direction
-            self.state.playback_speed_index = (self.state.playback_speed_index + 1) % len(self.config["playback_speeds"])
+            self._change_playback_speed_level(direction=1)
+        elif key == self.KEY_BACKWARD:
+            self.state.last_keypress = time.time()
+            self.state.is_default_mode = False
+            self._change_playback_speed_level(direction=-1)
         elif key == self.KEY_PAUSE:  # Pause/Play
             self.state.last_keypress = time.time()
             self.state.is_default_mode = False
-            self.state.playback_speed = 1 if self.state.playback_speed > 0 else -1
-            self.state.image_step = 1 if self.state.playback_speed > 0 else -1
+            self.state.is_paused = not self.state.is_paused
         elif key in [self.KEY_NEXT_PROJECT, self.KEY_PREV_PROJECT]:  # Select Project
             self.state.last_keypress = time.time()
             self.state.is_default_mode = False
@@ -136,7 +167,8 @@ class TimeLapse:
             self.state.project_name_display = self.state.projects[self.state.project_name_display_index]
             self.state.img_index_display = -1
             self.state.img_indices_display = self.state.projects_dict[self.state.project_name_display]["indices"]
-            self.state.img_max_index_display = len(self.state.img_indices_display)
+            self.state.display_frame_delta_seconds = self.state.projects_dict[self.state.project_name_display]["frame_delta_seconds"]
+            self.state.frame_advance_accumulator = 0.0
             print(f"Selected project: {self.state.project_name_display}")
             self.state.base_url_display = self._project_image_base_path(self.state.project_name_display)
         elif key == self.KEY_ESCAPE:
@@ -160,16 +192,12 @@ class TimeLapse:
                     if captured_index not in self.state.img_indices_record:
                         self.state.img_indices_record.append(captured_index)
 
-                    record_project = self.state.project_name_record
-                    self.state.projects_dict[record_project]["max_index"] = len(self.state.img_indices_record)
-
-                    if self.state.project_name_display == record_project:
+                    if self.state.project_name_display == self.state.project_name_record:
                         if (
                             self.state.img_indices_display is not self.state.img_indices_record
                             and captured_index not in self.state.img_indices_display
                         ):
                             self.state.img_indices_display.append(captured_index)
-                        self.state.img_max_index_display = len(self.state.img_indices_display)
 
                     self.state.img_index_record += 1
                     self.write_log_file()
