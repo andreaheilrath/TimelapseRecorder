@@ -1,118 +1,189 @@
-import time
 import json
-import os
+import time
+from typing import Any
 
-from modules.program_state import ProgramState
 from modules.camera_capture import CameraCapture
+from modules.program_state import ProgramState
 from modules.project_manager import ProjectManager
 from modules.ui_display import UIDisplay
 
 
 class TimeLapse:
     """A class for creating time-lapse videos using a connected camera."""
-    LOG_PATH = "log.txt"  # Path to the log file
 
-    def __init__(self):
-        """Initializes the TimeLapse object."""
-        # Load Configuration
-        with open("config.json") as config_file:
-            self.config = json.load(config_file)
+    LOG_PATH = "log.txt"
+    CONFIG_PATH = "config.json"
 
-        # State Management
+    KEY_FORWARD = ord("d")
+    KEY_BACKWARD = ord("a")
+    KEY_PAUSE = ord("s")
+    KEY_NEXT_PROJECT = ord("e")
+    KEY_PREV_PROJECT = ord("w")
+    KEY_ESCAPE = 27
+
+    REQUIRED_CONFIG_KEYS = {
+        "width",
+        "height",
+        "fullscreen",
+        "landscape",
+        "on_raspberry",
+        "capture",
+        "capture_interval",
+        "pixels_for_timestamp",
+        "default_playback_speed_index",
+        "playback_speeds",
+        "image_step",
+        "projects_folder",
+        "default_project",
+        "default_display",
+    }
+
+    def __init__(self) -> None:
+        # Load and validate configuration
+        with open(self.CONFIG_PATH, "r", encoding="utf-8") as config_file:
+            self.config: dict[str, Any] = json.load(config_file)
+        self._validate_config()
+
+        # State management
         self.state = ProgramState()
         self.state.program_start_time = time.time()
 
         # Submodules
         self.project_manager = ProjectManager(self.config, self.state)
         self.ui_display = UIDisplay(self.config, self.state)
-        self.camcap = CameraCapture(self.config, self.state)
+        self.camera_capture = CameraCapture(self.config, self.state)
 
-        # Timing and Playback controls
+        # Timing and playback controls
         self.last_capture_time = self.state.program_start_time - self.config["capture_interval"]
         self.state.last_keypress = time.time()
 
-        # Initialize Project and State
+        # Initialize project and state
         self.read_log_file()
         self.project_manager.setup()
         self.write_log_file()
 
-    def read_log_file(self):
+    def _validate_config(self) -> None:
+        missing_keys = self.REQUIRED_CONFIG_KEYS.difference(self.config)
+        if missing_keys:
+            missing_keys_sorted = ", ".join(sorted(missing_keys))
+            raise ValueError(f"Missing config keys: {missing_keys_sorted}")
+
+        if self.config["width"] <= 0 or self.config["height"] <= 0:
+            raise ValueError("Config values 'width' and 'height' must be positive integers")
+        if self.config["capture_interval"] <= 0:
+            raise ValueError("Config value 'capture_interval' must be > 0")
+        if self.config["pixels_for_timestamp"] <= 0:
+            raise ValueError("Config value 'pixels_for_timestamp' must be > 0")
+
+        playback_speeds = self.config["playback_speeds"]
+        image_steps = self.config["image_step"]
+        default_speed_index = self.config["default_playback_speed_index"]
+
+        if not isinstance(playback_speeds, list) or not playback_speeds:
+            raise ValueError("Config value 'playback_speeds' must be a non-empty list")
+        if not isinstance(image_steps, list) or not image_steps:
+            raise ValueError("Config value 'image_step' must be a non-empty list")
+        if len(playback_speeds) != len(image_steps):
+            raise ValueError("Config lists 'playback_speeds' and 'image_step' must have the same length")
+        if default_speed_index < 0 or default_speed_index >= len(playback_speeds):
+            raise ValueError("Config value 'default_playback_speed_index' is out of range")
+
+    def _project_image_base_path(self, project_name: str) -> str:
+        return self.project_manager.project_image_base_path(project_name)
+
+    def read_log_file(self) -> None:
         """Reads the log file to resume the last session's state."""
         try:
-            with open(self.LOG_PATH, "r") as log_file:
-                self.state.projectName_record = log_file.readline().strip()
-                self.state.imgIndex_record = int(log_file.readline().strip())
+            with open(self.LOG_PATH, "r", encoding="utf-8") as log_file:
+                project_name = log_file.readline().strip()
+                self.state.project_name_record = project_name or None
+                self.state.img_index_record = int(log_file.readline().strip())
                 self.state.program_start_time = float(log_file.readline().strip())
-        except FileNotFoundError:
-            print("Log file not found. Starting with default values.")
+        except (FileNotFoundError, ValueError):
+            print("Log file missing or invalid. Starting with default values.")
 
-    def write_log_file(self):
+    def write_log_file(self) -> None:
         """Writes the current state to the log file."""
-        with open(self.LOG_PATH, "w") as log_file:
-            log_file.write(f"{self.state.projectName_record}\n{self.state.imgIndex_record}\n{self.state.program_start_time}")
+        with open(self.LOG_PATH, "w", encoding="utf-8") as log_file:
+            log_file.write(
+                f"{self.state.project_name_record}\n"
+                f"{self.state.img_index_record}\n"
+                f"{self.state.program_start_time}"
+            )
 
-    def handle_key_press(self):
+    def handle_key_press(self) -> bool:
         """Handles key press events for playback control."""
         key = self.state.key
-        if key in [ord('d'), ord('a')]:
+        if key in [self.KEY_FORWARD, self.KEY_BACKWARD]:
             self.state.last_keypress = time.time()
-            self.state.default = False
-            direction = -1 if key == ord('a') else 1
+            self.state.is_default_mode = False
+            direction = -1 if key == self.KEY_BACKWARD else 1
             self.state.playback_speed = self.config["playback_speeds"][self.state.playback_speed_index] * direction
             self.state.image_step = self.config["image_step"][self.state.playback_speed_index] * direction
             self.state.playback_speed_index = (self.state.playback_speed_index + 1) % len(self.config["playback_speeds"])
-        elif key == ord('s'):  # Pause/Play
+        elif key == self.KEY_PAUSE:  # Pause/Play
             self.state.last_keypress = time.time()
-            self.state.default = False
+            self.state.is_default_mode = False
             self.state.playback_speed = 1 if self.state.playback_speed > 0 else -1
             self.state.image_step = 1 if self.state.playback_speed > 0 else -1
-
-        elif key in [ord('e'), ord('w')]:  # Select Project
+        elif key in [self.KEY_NEXT_PROJECT, self.KEY_PREV_PROJECT]:  # Select Project
             self.state.last_keypress = time.time()
-            self.state.default = False
-            step = 1 if key == ord('e') else -1
-            self.state.projectName_display_index = (self.state.projectName_display_index + step) % len(self.state.projects)
-            self.state.projectName_display = self.state.projects[self.state.projectName_display_index]
-            self.state.imgIndex_display = 1
-            self.state.imgMaxIndex_display = self.state.projects_dict[self.state.projectName_display]['max_index']
-            self.state.imgIndices_display = self.state.projects_dict[self.state.projectName_display]['indices']
-            print(f"Selected project: {self.state.projectName_display}")
-            self.state.baseUrl_display = os.path.join(self.config["projects_folder"],
-                                                       self.state.projectName_display,
-                                                       self.state.img_file_prefix)
-
-        elif key == 27:  # ESC key
+            self.state.is_default_mode = False
+            step = 1 if key == self.KEY_NEXT_PROJECT else -1
+            self.state.project_name_display_index = (
+                self.state.project_name_display_index + step
+            ) % len(self.state.projects)
+            self.state.project_name_display = self.state.projects[self.state.project_name_display_index]
+            self.state.img_index_display = -1
+            self.state.img_indices_display = self.state.projects_dict[self.state.project_name_display]["indices"]
+            self.state.img_max_index_display = len(self.state.img_indices_display)
+            print(f"Selected project: {self.state.project_name_display}")
+            self.state.base_url_display = self._project_image_base_path(self.state.project_name_display)
+        elif key == self.KEY_ESCAPE:
             print("Quitting program.")
             return False
 
         return True
 
-    def main_loop(self):
+    def main_loop(self) -> None:
         """Main loop for capturing images and handling playback."""
         while True:
             if not self.handle_key_press():
                 break
 
-            # Capture Image
+            # Capture image
             if self.config["capture"] and time.time() - self.last_capture_time >= self.config["capture_interval"]:
                 elapsed_time = int(time.time() - self.state.program_start_time)
-                self.camcap.capture_image(elapsed_time)
-                self.last_capture_time = time.time()
+                saved = self.camera_capture.capture_image(elapsed_time)
+                if saved:
+                    captured_index = self.state.img_index_record
+                    if captured_index not in self.state.img_indices_record:
+                        self.state.img_indices_record.append(captured_index)
 
-                if self.state.projectName_display == self.state.projectName_record:
-                    self.state.imgMaxIndex_display += 1
-                self.state.imgIndex_record += 1
-                self.write_log_file()
+                    record_project = self.state.project_name_record
+                    self.state.projects_dict[record_project]["max_index"] = len(self.state.img_indices_record)
+
+                    if self.state.project_name_display == record_project:
+                        if (
+                            self.state.img_indices_display is not self.state.img_indices_record
+                            and captured_index not in self.state.img_indices_display
+                        ):
+                            self.state.img_indices_display.append(captured_index)
+                        self.state.img_max_index_display = len(self.state.img_indices_display)
+
+                    self.state.img_index_record += 1
+                    self.write_log_file()
+
+                self.last_capture_time = time.time()
 
             # Playback
             self.ui_display.play_movie()
-            if not self.state.default:
+            if not self.state.is_default_mode:
                 self.ui_display.return_to_default()
 
-
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Cleans up resources."""
-        self.camcap.cleanup()
+        self.camera_capture.cleanup()
         self.ui_display.cleanup()
 
 

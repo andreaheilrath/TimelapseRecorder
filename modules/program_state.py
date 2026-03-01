@@ -1,38 +1,35 @@
 import time
+from dataclasses import dataclass, field
+from typing import Any
 
+
+@dataclass
 class ProgramState:
-    def __init__(self):
+    is_default_mode: bool = True
+    img_file_prefix: str = "image_"
 
-        # Flags and Paths
-        self.default = True
-        self.img_file_prefix = "image_"
+    projects: list[str] = field(default_factory=list)
+    projects_dict: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-        self.projects = []
-        self.projects_dict = {}
+    # Image and project state
+    project_name_record: str | None = None
+    base_url_record: str = ""
+    img_index_record: int = 0
+    img_indices_record: list[int] = field(default_factory=list)
+    img_max_index_record: int = 0
 
-        # Image and Project State
-        self.projectName_record = None
-        self.baseUrl_record = ""
-        self.imgIndex_record = 0
-        self.imgIndices_record = []
-        self.imgMaxIndex_record = 0
+    project_name_display: str | None = None
+    project_name_display_index: int = 0
+    base_url_display: str = ""
+    img_index_display: int = -1
+    img_indices_display: list[int] = field(default_factory=list)
+    img_max_index_display: int = 0
 
-        self.projectName_display = None
-        self.projectName_display_index = 0
-        self.baseUrl_display = ""
-        self.imgIndex_display = 1
-        self.imgIndices_display = []
-        self.imgMaxIndex_display = 0
+    # Time and playback state
+    program_start_time: float = field(default_factory=time.time)
+    key: int | None = None
+    last_keypress: float = field(default_factory=time.time)
 
-        
-        # Time and Playback State
-        self.program_start_time = time.time()
-        self.key = None
-        self.last_keypress = time.time()
-
-        self.playback_speed = 1
-        self.playback_speed_index = 0
-        self.image_step = 1
-
-
-        
+    playback_speed: int = 1
+    playback_speed_index: int = 0
+    image_step: int = 1
