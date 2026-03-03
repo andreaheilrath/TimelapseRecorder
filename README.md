@@ -2,6 +2,46 @@
 
 This code provides a framework for recording and displaying a timelapse for windows or unix systems (including Raspberry PI).
 
+## Architecture
+
+- `timelapse.py`: Main entry point and control loop. Handles config loading, key handling, capture scheduling, and module coordination.
+- `modules/camera_capture.py`: Camera setup and image capture. Writes frames with embedded timestamp pixels.
+- `modules/project_manager.py`: Project discovery/setup and per-project metadata (frame indices and inferred frame delta).
+- `modules/ui_display.py`: Playback and UI rendering. Displays frames at fixed render FPS and maps playback speed to frame stepping.
+- `modules/program_state.py`: Shared runtime state passed between modules.
+- `reduce_project_frames.py`: Utility CLI to thin out frames in a project and reindex files (`image_0.jpg`, `image_1.jpg`, ...).
+
+Data flow (runtime): `CameraCapture` writes frames -> `ProjectManager` provides project/frame metadata -> `UIDisplay` reads frames for playback, all coordinated by `TimeLapse`.
+
+## How To Use
+
+1. Create a new project folder inside `projects`.
+   - The folder name is your project name.
+   - Example:
+   ```bash
+   mkdir -p projects/my_new_project
+   ```
+   - If `capture` is enabled, the recorder will use an empty project folder for new captures.
+
+2. Set the timelapse interval in `config.json`.
+   - Parameter: `capture_interval` (seconds between two captured frames).
+   - Example:
+   ```json
+   "capture_interval": 30
+   ```
+
+3. Start the recorder.
+   ```bash
+   python3 timelapse.py
+   ```
+
+### Capture Interval Recommendations
+
+- Fast motion (people, busy workshop, clouds in wind): `8-15` seconds
+- Medium motion (normal room activity, plants during daytime): `15-60` seconds
+- Slow motion (plant growth, construction progress): `60-300` seconds
+- Very slow / long-term projects (days to weeks): `300-1800+` seconds
+
 
 ## Materials
 
