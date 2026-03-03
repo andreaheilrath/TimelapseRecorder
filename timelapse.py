@@ -1,6 +1,7 @@
 import json
 import time
 from typing import Any
+from pathlib import Path
 
 from modules.camera_capture import CameraCapture
 from modules.program_state import ProgramState
@@ -11,8 +12,9 @@ from modules.ui_display import UIDisplay
 class TimeLapse:
     """A class for creating time-lapse videos using a connected camera."""
 
-    LOG_PATH = "log.txt"
-    CONFIG_PATH = "config.json"
+    BASE_DIR = Path(__file__).resolve().parent
+    LOG_PATH = BASE_DIR / "log.txt"
+    CONFIG_PATH = BASE_DIR / "config.json"
 
     KEY_FORWARD = ord("d")
     KEY_BACKWARD = ord("a")
@@ -40,6 +42,7 @@ class TimeLapse:
         # Load and validate configuration
         with open(self.CONFIG_PATH, "r", encoding="utf-8") as config_file:
             self.config: dict[str, Any] = json.load(config_file)
+        self._normalize_paths()
         self._validate_config()
 
         # State management
@@ -80,6 +83,12 @@ class TimeLapse:
             raise ValueError("Config value 'playback_speeds' must be a non-empty list")
         if default_speed_index < 0 or default_speed_index >= len(playback_speeds):
             raise ValueError("Config value 'default_playback_speed_index' is out of range")
+
+    def _normalize_paths(self) -> None:
+        projects_folder = Path(self.config["projects_folder"])
+        if not projects_folder.is_absolute():
+            projects_folder = self.BASE_DIR / projects_folder
+        self.config["projects_folder"] = str(projects_folder)
 
     def _project_image_base_path(self, project_name: str) -> str:
         return self.project_manager.project_image_base_path(project_name)
