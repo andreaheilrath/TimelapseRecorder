@@ -2,18 +2,18 @@
     "width": 1920,
     "height": 1080,
 
-    "fullscreen" : false,
-    "landscape" : true,
+    "fullscreen" : true,
+    "landscape" : false,
     "on_raspberry": false,
 
     "capture": true,
     "capture_interval": 30,
     "pixels_for_timestamp": 15,
 
-    "default_playback_speed_index" : 6,
+    "default_playback_speed_index" : 4,
     "playback_speeds" : [256, 1024, 4096, 16384,  65536, 262144, 1048576],
 
     "projects_folder" : "projects",
     "default_project_name" : "default",
-    "default_display" : "pilz_manege"
+    "default_display" : "pilz"
   }

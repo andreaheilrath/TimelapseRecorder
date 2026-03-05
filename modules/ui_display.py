@@ -123,29 +123,40 @@ class UIDisplay:
         elapsed_time = self.map_255_time([value_days, value_hours, value_minutes, value_seconds])
 
         # Print elapsed time
-        space = 120
-        left_space = 30
-        self._put_text(ui_element, f"{elapsed_time[0]}d", (left_space, 40), font_specs)
-        self._put_text(ui_element, f"{elapsed_time[1]}h", (left_space + space, 40), font_specs)
-        self._put_text(ui_element, f"{elapsed_time[2]}m", (left_space + 2 * space, 40), font_specs)
-        self._put_text(ui_element, f"{elapsed_time[3]}s", (left_space + 3 * space, 40), font_specs)
+        space = 100
+        left_space = 20
+        self._put_text(ui_element, f"{elapsed_time[0]:02d}d", (left_space, 40), font_specs)
+        self._put_text(ui_element, f"{elapsed_time[1]:02d}h", (left_space + space, 40), font_specs)
+        self._put_text(ui_element, f"{elapsed_time[2]:02d}m", (left_space + 2 * space, 40), font_specs)
+        self._put_text(ui_element, f"{elapsed_time[3]:02d}s", (left_space + 3 * space, 40), font_specs)
 
         # Print playback speed
         icon = ">>" if self.state.playback_speed > 1 else "<<" if self.state.playback_speed < -1 else "> "
-        self._put_text(ui_element, f"{icon}{abs(self.state.playback_speed)}x", (width // 2, 40), font_specs)
+        self._put_text(ui_element, f"{icon}{abs(self.state.playback_speed)}x", (4 * width // 10, 40), font_specs)
 
         # Print project name
-        self._put_text(ui_element, self.state.project_name_display, (6 * width // 8, 40), font_specs)
+        self._put_text(ui_element, self.state.project_name_display, (2 * width // 3, 40), font_specs)
 
         return ui_element
 
     def _add_ui_overlay(self, frame: Any, ui_element: Any) -> Any:
         """Adds the UI overlay to the frame."""
+        pixel_offset = self.config["pixels_for_timestamp"]
         if self.config["landscape"]:
-            frame[0:self.UI_BAR_HEIGHT, self.config["pixels_for_timestamp"]:] = ui_element[:, self.config["pixels_for_timestamp"]:]
+            target_height = min(self.UI_BAR_HEIGHT, frame.shape[0], ui_element.shape[0])
+            target_width = min(frame.shape[1] - pixel_offset, ui_element.shape[1] - pixel_offset)
+            if target_height > 0 and target_width > 0:
+                frame[0:target_height, pixel_offset:pixel_offset + target_width] = ui_element[
+                    0:target_height, pixel_offset:pixel_offset + target_width
+                ]
         else:
             ui_element = cv2.rotate(ui_element, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            frame[self.config["pixels_for_timestamp"]:, 0:self.UI_BAR_HEIGHT] = ui_element
+            target_height = min(frame.shape[0] - pixel_offset, ui_element.shape[0] - pixel_offset)
+            target_width = min(self.UI_BAR_HEIGHT, frame.shape[1], ui_element.shape[1])
+            if target_height > 0 and target_width > 0:
+                frame[pixel_offset:pixel_offset + target_height, 0:target_width] = ui_element[
+                    pixel_offset:pixel_offset + target_height, 0:target_width
+                ]
         return frame
 
     def _put_text(self, canvas: Any, text: str, position: tuple[int, int], font_specs: dict[str, Any]) -> None:
