@@ -61,28 +61,33 @@ class UIDisplay:
     def return_to_default(self) -> None:
         """Returns playback settings to default after inactivity."""
         delta = time.time() - self.state.last_keypress
-        if delta > self.INACTIVITY_TIMEOUT_SECONDS:
-            current_project = self.state.project_name_display
-            default_display = self.config.get("default_display")
-            target_project = default_display if default_display in self.state.projects else current_project
+        if delta <= self.INACTIVITY_TIMEOUT_SECONDS:
+            return
 
-            if target_project in self.state.projects:
-                self.state.project_name_display = target_project
-                self.state.project_name_display_index = self.state.projects.index(self.state.project_name_display)
-                self.state.base_url_display = os.path.join(
-                    self.config["projects_folder"],
-                    self.state.project_name_display,
-                    self.state.img_file_prefix,
-                )
-                self.state.img_indices_display = self.state.projects_dict[self.state.project_name_display]["indices"]
+        current_project = self.state.project_name_display
+        default_display = self.config.get("default_display")
+        target_project = default_display if default_display in self.state.projects else current_project
 
-            self.state.img_index_display = -1
-            self.state.display_frame_delta_seconds = self.state.projects_dict[self.state.project_name_display]["frame_delta_seconds"]
-            self.state.frame_advance_accumulator = 0.0
-            default_index = self.config["default_playback_speed_index"]
-            self.state.playback_speed = self.config["playback_speeds"][default_index]
-            self.state.is_default_mode = True
-            print("Returning to Default")
+        if self.state.is_default_mode and current_project == target_project:
+            return
+
+        if target_project in self.state.projects:
+            self.state.project_name_display = target_project
+            self.state.project_name_display_index = self.state.projects.index(self.state.project_name_display)
+            self.state.base_url_display = os.path.join(
+                self.config["projects_folder"],
+                self.state.project_name_display,
+                self.state.img_file_prefix,
+            )
+            self.state.img_indices_display = self.state.projects_dict[self.state.project_name_display]["indices"]
+
+        self.state.img_index_display = -1
+        self.state.display_frame_delta_seconds = self.state.projects_dict[self.state.project_name_display]["frame_delta_seconds"]
+        self.state.frame_advance_accumulator = 0.0
+        default_index = self.config["default_playback_speed_index"]
+        self.state.playback_speed = self.config["playback_speeds"][default_index]
+        self.state.is_default_mode = True
+        print("Returning to Default")
 
     def update_display(self, index: int) -> None:
         """Displays the image at the given index with overlays."""

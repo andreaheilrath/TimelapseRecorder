@@ -215,8 +215,7 @@ class TimeLapse:
 
             # Playback
             self.ui_display.play_movie()
-            if not self.state.is_default_mode:
-                self.ui_display.return_to_default()
+            self.ui_display.return_to_default()
 
     def cleanup(self) -> None:
         """Cleans up resources."""
